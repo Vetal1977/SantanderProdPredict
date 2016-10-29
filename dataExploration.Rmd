@@ -111,9 +111,8 @@ mapCountryData(mapToPlot = plotData, nameColumnToPlot = "N", catMethod = "logFix
 ```
 ... the most customers are coming from Spain. We will narrow down the data using the age 
 limitations for Spain; this means, from 18 (age when any may open a bank account) to 
-83 (life expectation). It is not clear, what to do with the customers, which age exceeds
-the limitations. It is absolutely possible, that the age data contain error ans should 
-not be used for a training.
+83 (life expectation). To be a bit more sure, I say that the valid age interval is from 18 to 90. 
+For other ages I set a median value.
 
 ``` {r echo = FALSE}
 train <- train[train$age >= 18 & train$age <= 83]
