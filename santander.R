@@ -1,4 +1,28 @@
 library(data.table)
+library(dplyr)
+library(tidyr)
+library(doParallel)
+
+product.status.change <- function(x) {
+    if (length(x) == 1) {
+        label = ifelse(x == 1, "Added", "Maintained")
+    } 
+    else {
+        diffs <- diff(x) # difference month-by-month
+        diffs <- c(0, diffs)
+        label <- rep("Maintained", length(x))
+        label <- ifelse(diffs == 1, 
+                        "Added",
+                        ifelse(diffs == -1, 
+                               "Dropped", 
+                               "Maintained"))
+    }
+    return(label)
+}
+
+# use multiple cores
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
 
 # read the train data from the file
 train <- fread('train_ver2.csv', sep = ',', na.strings = 'NA', 
@@ -72,11 +96,43 @@ test <- combine[combine$fecha_dato == '2016-06-28']
 rm(combine)
 gc()
 
-# clean up products in the thrain data set
-#products <- grep("ind_+.*ult.*", names(train))
-#train[, products] <- lapply(train[, products], FUN = function(x) { as.integer(round(x)) })
-#gc()
+#char.cols <- names(train)[sapply(train, is.character)]
+#char.cols <- char.cols[!char.cols %in% c("fecha_dato","fecha_alta")] #ignore dates for this purpose
+#for (name in char.cols) {
+#    print(sprintf("Unique values for %s:", name))
+#    print(unique(train[[name]]))
+#}
 
+# introduce month IDs to apply the product status change from month to month
+train <- train %>% arrange(fecha_dato)
+train$month_id <- as.numeric(factor(train$fecha_dato))
+train$next_month_id <- train$month_id + 1
+
+# apply the product status change: each product column will contain 'Maintained', 'Added', 'Removed' values
+products <- grep("ind_+.*ult.*", names(train))
+train[, products] <- lapply(train[, products], 
+                            function(x) {
+                                    return(ave(x, train$ncodpers, FUN = product.status.change))
+                                }
+                            )
+
+# remove rows with 'Maintained' products only since it is not interesting for learning
+# actually we want to know when the status is changed to 'Added'
+
+# remove row where _all_ products are only 'Maintained'
+interesting <- rowSums(train[, products] != 'Maintained')
+train <- train[interesting > 0,]
+
+# 'rotate' the data set where each row corresponds to the tripple customer ID - product - status
+train <- train %>%
+    gather(key = product, value = status, ind_ahor_fin_ult1:ind_recibo_ult1)
+
+# now we can remove all single products with status 'Maintained'
+# !train here is a data.frame
+train <- filter(train, status != "Maintained")
+
+# stop using multiple cores
+stopCluster(cl)
 
 
 
