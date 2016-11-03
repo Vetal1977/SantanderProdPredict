@@ -1,7 +1,6 @@
 library(data.table)
 library(dplyr)
 library(tidyr)
-library(doParallel)
 
 product.status.change <- function(x) {
     if (length(x) == 1) {
@@ -19,10 +18,6 @@ product.status.change <- function(x) {
     }
     return(label)
 }
-
-# use multiple cores
-cl <- makeCluster(detectCores())
-registerDoParallel(cl)
 
 # read the train data from the file
 train <- fread('train_ver2.csv', sep = ',', na.strings = 'NA', 
@@ -48,8 +43,9 @@ gc()
 ageMedian <- median(combine[combine$age >= 18 & combine$age <= 90]$age)
 combine[combine$age < 18 & combine$age > 90]$age <- ageMedian
 
-# NA's for tipodom. set it to 1
-combine[is.na(combine$tipodom)]$tipodom <- 1
+# remove tipodom, conyuemp and
+# remove ult_fec_cli_1t - last date as primary customer (if he isn't at the end of the month)
+combine[, c('conyuemp', 'tipodom', 'ult_fec_cli_1t') := NULL]
 
 # we have code and name columns for province - remove duplicated information, province name
 # and replace NA province code with 0
@@ -85,8 +81,32 @@ combine[combine$indrel_1mes == 'P']$indrel_1mes <- '5'
 combine$indrel_1mes <- as.integer(combine$indrel_1mes)
 gc()
 
-combine[combine$conyuemp == '']$conyuemp <- '0'
-combine$conyuemp <- as.integer(combine$conyuemp)
+# remove all deceaseds and then the indfall column
+combine <- combine[combine$indfall == 'N']
+combine[, c('indfall') := NULL]
+
+# replace empties
+combine[combine$sexo == '']$sexo <- '_U'
+combine[combine$canal_entrada == '']$canal_entrada <- '_U'
+combine[combine$segmento == '']$segmento <- '_U'
+gc()
+
+# make dates and factors
+combine$fecha_dato <- as.Date(combine$fecha_dato)
+combine$fecha_alta <- as.Date(combine$fecha_alta)
+combine$ind_empleado <- as.factor(combine$ind_empleado)
+combine$pais_residencia <- as.factor(combine$pais_residencia)
+combine$sexo <- as.factor(combine$sexo)
+combine$ind_nuevo <- as.factor(combine$ind_nuevo)
+combine$indrel <- as.factor(combine$indrel)
+combine$indrel_1mes <- as.factor(combine$indrel_1mes)
+combine$tiprel_1mes <- as.factor(combine$tiprel_1mes)
+combine$indresi <- as.factor(combine$indresi)
+combine$indext <- as.factor(combine$indext)
+combine$canal_entrada <- as.factor(combine$canal_entrada)
+combine$cod_prov <- as.factor(combine$cod_prov)
+combine$ind_actividad_cliente <- as.factor(combine$ind_actividad_cliente)
+combine$segmento <- as.factor(combine$segmento)
 gc()
 
 # split combine data set into train and test again
@@ -97,7 +117,7 @@ rm(combine)
 gc()
 
 #char.cols <- names(train)[sapply(train, is.character)]
-#char.cols <- char.cols[!char.cols %in% c("fecha_dato","fecha_alta")] #ignore dates for this purpose
+#char.cols <- char.cols[!char.cols %in% c("fecha_alta")] #ignore dates for this purpose
 #for (name in char.cols) {
 #    print(sprintf("Unique values for %s:", name))
 #    print(unique(train[[name]]))
@@ -115,6 +135,7 @@ train[, products] <- lapply(train[, products],
                                     return(ave(x, train$ncodpers, FUN = product.status.change))
                                 }
                             )
+gc()
 
 # remove rows with 'Maintained' products only since it is not interesting for learning
 # actually we want to know when the status is changed to 'Added'
@@ -131,61 +152,53 @@ train <- train %>%
 # !train here is a data.frame
 train <- filter(train, status != "Maintained")
 
-# stop using multiple cores
-stopCluster(cl)
+# convert data.frame to data.table
+train <- data.table(train)
 
+# remove helper month_id and next_month_id
+train[, c('month_id', 'next_month_id', 'ncodpers') := NULL]
+gc()
 
+# divide train data set to train and cross validation
+#cross_valid <- train[train$fecha_dato == '2016-05-28']
+#train <- train[train$fecha_dato != '2016-05-28']
+gc()
 
+train$product <- as.factor(train$product)
+train$status <- as.factor(train$status)
+levels(train$status)[1] <- 1
+levels(train$status)[2] <- 0
+model <- glm(status ~.,family = binomial(link = 'logit'), data = train)
 
+#cross_valid_status <- cross_valid$status
+#cross_valid[, c('status') := NULL]
 
-# indrel, age, segmento, canal_entrada, age, antiguedad may change from time to time!
-trainUniquePers <- train[, by = list(ncodpers, ind_empleado, pais_residencia, sexo, age,
-                                    indrel, canal_entrada, cod_prov, renta, segmento), 
-               lapply(.SD, max),
-               .SDcols = c('age', 'antiguedad',
-                           'ind_ahor_fin_ult1', 'ind_aval_fin_ult1', 'ind_cco_fin_ult1',
-                           'ind_cder_fin_ult1', 'ind_cno_fin_ult1', 'ind_ctju_fin_ult1',
-                           'ind_ctma_fin_ult1', 'ind_ctop_fin_ult1', 'ind_ctpp_fin_ult1',
-                           'ind_deco_fin_ult1', 'ind_deme_fin_ult1', 'ind_dela_fin_ult1',
-                           'ind_ecue_fin_ult1', 'ind_fond_fin_ult1', 'ind_hip_fin_ult1',
-                           'ind_plan_fin_ult1', 'ind_pres_fin_ult1', 'ind_reca_fin_ult1',
-                           'ind_tjcr_fin_ult1', 'ind_valo_fin_ult1', 'ind_viv_fin_ult1',
-                           'ind_nomina_ult1', 'ind_nom_pens_ult1', 'ind_recibo_ult1')]
+# MT (Malta) -> IT (Italy), SV (Salvador) -> MX (Mexiko) 
+#cross_valid[cross_valid$pais_residencia == 'MT']$pais_residencia <- 'IT'
+#cross_valid[cross_valid$pais_residencia == 'SV']$pais_residencia <- 'MX'
 
-# clean test data
+#cross_valid[cross_valid$canal_entrada == 'KGN']$canal_entrada <- '_U'
+#cross_valid[cross_valid$canal_entrada == 'KHR']$canal_entrada <- '_U'
 
-# 2. limit ages for test set too 
-test[test$age < 18 & test$age > 90]$age <- ageMedian
+#status_predict <- predict(model, newdata = cross_valid, type = 'response')
 
-# 3. set income for NA's for test set too
-test[is.na(test$renta) & test$pais_residencia == 'ES']$renta <- medianIncomeSpain
-test[is.na(test$renta) & test$pais_residencia != 'ES']$renta <- medianIncomeForeign
+#cross_valid$status <- cross_valid_status
+#cross_valid$status_predict <- ifelse (status_predict > 0.5, 'Added', 'Dropped')
+#cross_valid_result <- nrow(cross_valid[cross_valid$status == cross_valid$status_predict]) / 
+#    nrow(cross_valid)
 
-# 4. remove cod_prov
-test[is.na(test$cod_prov)]$cod_prov <- 0
+#rm(cross_valid)
+rm(train)
+gc()
 
-# 5. remove indrel_1mes NA's
-test[is.na(test$indrel_1mes)]$indrel_1mes <- 
-    train[train$ncodpers %in% test[is.na(test$indrel_1mes)]$ncodpers]$indrel_1mes
+# prepare the test set similar to a train set
+test <- test %>%
+    gather(key = product, value = status, ind_ahor_fin_ult1:ind_recibo_ult1)
+test <- data.table(test)
+gc()
 
-# 6. deceased cannot buy new products
-test <- test[test$indfall != 'S']
+test$product <- as.factor(test$product)
+test_ncodpers <- test$ncodpers
+test[, c('status', 'ncodpers') := NULL]
 
-# TODO: the products may change from 0 to 1 and vice versa each month
-
-# - Find customer clusters
-trainCluster <- train[, c('ncodpers', 'age', 'sexo', 'cod_prov', 'renta', 'segmento'), with = FALSE]
-trainCluster <- trainCluster[!duplicated(trainCluster$ncodpers)]
-trainCluster$ncodpers <- NULL
-trainCluster$sexo <- as.factor(trainCluster$sexo)
-trainCluster$cod_prov <- as.factor(trainCluster$cod_prov)
-trainCluster$segmento <- as.factor(trainCluster$segmento)
-
-trainClusterMatrix <- model.matrix(~.+0, data = trainCluster)
-trainClusterMatrix$sexo <- NULL
-trainClusterMatrix$cod_prov <- NULL
-trainClusterMatrix$segmento <- NULL
-
-cluster <- kmeans(trainClusterMatrix, 5, nstart = 20)
-
-# - For each cluster make a forecasting of products
+status_predict <- predict(model, newdata = test, type = 'response')
