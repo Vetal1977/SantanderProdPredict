@@ -1,6 +1,7 @@
 library(data.table)
 library(dplyr)
 library(tidyr)
+library(reshape2)
 
 product.status.change <- function(x) {
     if (length(x) == 1) {
@@ -79,11 +80,9 @@ combine[combine$tiprel_1mes == '']$tiprel_1mes <- 'A'
 combine[combine$indrel_1mes == '']$indrel_1mes <- '1'
 combine[combine$indrel_1mes == 'P']$indrel_1mes <- '5'
 combine$indrel_1mes <- as.integer(combine$indrel_1mes)
+combine[combine$indrel_1mes > 5]$indrel_1mes <- 1
+combine[is.na(combine$indrel_1mes)]$indrel_1mes <- 1
 gc()
-
-# remove all deceaseds and then the indfall column
-combine <- combine[combine$indfall == 'N']
-combine[, c('indfall') := NULL]
 
 # replace empties
 combine[combine$sexo == '']$sexo <- '_U'
@@ -122,6 +121,10 @@ gc()
 #    print(sprintf("Unique values for %s:", name))
 #    print(unique(train[[name]]))
 #}
+
+# remove all deceaseds and then the indfall column
+train <- train[train$indfall == 'N']
+train[, c('indfall') := NULL]
 
 # introduce month IDs to apply the product status change from month to month
 train <- train %>% arrange(fecha_dato)
@@ -162,7 +165,7 @@ gc()
 # divide train data set to train and cross validation
 #cross_valid <- train[train$fecha_dato == '2016-05-28']
 #train <- train[train$fecha_dato != '2016-05-28']
-gc()
+#added_productsgc()
 
 train$product <- as.factor(train$product)
 train$status <- as.factor(train$status)
@@ -201,4 +204,62 @@ test$product <- as.factor(test$product)
 test_ncodpers <- test$ncodpers
 test[, c('status', 'ncodpers') := NULL]
 
-status_predict <- predict(model, newdata = test, type = 'response')
+# unknown countries
+test[test$pais_residencia %in% c('AL', 'BA', 'BG', 'BZ', 'CD', 'CF', 'DJ', 'DZ', 
+                                 'EC', 'EE', 'EG', 'GE', 'GH', 'GI', 'GM', 'GN', 
+                                 'GT', 'GW', 'HR', 'HU', 'IS', 'JM', 'KH', 'KW', 
+                                 'KZ', 'LB', 'LT', 'LV', 'LY', 'MD', 'MK', 'ML', 
+                                 'MM', 'MR', 'MZ', 'NI', 'PH', 'PK', 'RS', 'SK', 
+                                 'SL', 'TG', 'TH', 'TN', 'TW', 'UA', 'ZW')]$pais_residencia <- 'ES'
+
+# unknow channels
+test[test$canal_entrada %in% c('025', 'KBN', 'KBP', 'KCT', 'KCX', 'KDB', 
+                               'KDI', 'KDL', 'KEQ', 'KEU', 'KFV', 'KGC', 
+                               'KGU', 'KHS')]$canal_entrada <- '_U'
+gc()
+
+# prediction of more than 22 mio rows requires a waz too much memory, divide into chunks
+#status_predict <- predict(model, newdata = test, type = 'response')
+
+test_count <- nrow(test)
+predicton_count <- as.integer(test_count / 1000000) + 1
+test$status <- ''
+gc()
+for (i in 1:predicton_count) {
+    start_idx <- (i - 1)*1000000 + 1
+    end_idx = min(c(i*1000000, test_count))
+    print(c(start_idx, end_idx))
+    to_predict <- test[start_idx : end_idx]
+    status_predict <- predict(model, newdata = to_predict, type = 'response')
+    test[start_idx : end_idx]$status <- ifelse (status_predict > 0.5, 'Added', 'Dropped')
+    gc()
+}
+test$status <- as.factor(test$status)
+test$ncodpers <- test_ncodpers
+gc()
+
+# form the result
+# we have many customers with predicted added products
+result <- test %>% 
+    filter(status == 'Added') %>% 
+    group_by(ncodpers) %>% 
+    summarise(added_products = paste(product, collapse = ' '))
+result <- as.data.table(result)
+gc()
+
+# we have laos few customers with no added products - we need to bind them to the final set
+result_dropped <- test %>% 
+    filter(status == 'Dropped') %>% 
+    group_by(ncodpers) %>% 
+    summarise(dropped_products_count = n())
+result_dropped <- as.data.table(result_dropped)
+result_dropped <- result_dropped[result_dropped$dropped_products_count == 24]
+result_dropped$added_products <- ''
+result_dropped[, c('dropped_products_count') := NULL]
+gc()
+
+result <- rbind(result, result_dropped)
+result <- result[order(ncodpers)]
+
+# write results
+write.csv(result, 'result1.csv', quote = FALSE, row.names = FALSE)
