@@ -123,8 +123,8 @@ gc()
 #}
 
 # remove all deceaseds and then the indfall column
-train <- train[train$indfall == 'N']
-train[, c('indfall') := NULL]
+#train <- train[train$indfall == 'N']
+#train[, c('indfall') := NULL]
 
 # introduce month IDs to apply the product status change from month to month
 train <- train %>% arrange(fecha_dato)
@@ -165,7 +165,6 @@ gc()
 # divide train data set to train and cross validation
 #cross_valid <- train[train$fecha_dato == '2016-05-28']
 #train <- train[train$fecha_dato != '2016-05-28']
-#added_productsgc()
 
 train$product <- as.factor(train$product)
 train$status <- as.factor(train$status)
@@ -174,7 +173,6 @@ levels(train$status)[2] <- 0
 model <- glm(status ~.,family = binomial(link = 'logit'), data = train)
 
 #cross_valid_status <- cross_valid$status
-#cross_valid[, c('status') := NULL]
 
 # MT (Malta) -> IT (Italy), SV (Salvador) -> MX (Mexiko) 
 #cross_valid[cross_valid$pais_residencia == 'MT']$pais_residencia <- 'IT'
@@ -186,11 +184,11 @@ model <- glm(status ~.,family = binomial(link = 'logit'), data = train)
 #status_predict <- predict(model, newdata = cross_valid, type = 'response')
 
 #cross_valid$status <- cross_valid_status
-#cross_valid$status_predict <- ifelse (status_predict > 0.5, 'Added', 'Dropped')
+#cross_valid$status_predict <- ifelse (status_predict > 0.6, '2', '1')
 #cross_valid_result <- nrow(cross_valid[cross_valid$status == cross_valid$status_predict]) / 
 #    nrow(cross_valid)
-
 #rm(cross_valid)
+
 rm(train)
 gc()
 
@@ -262,4 +260,4 @@ result <- rbind(result, result_dropped)
 result <- result[order(ncodpers)]
 
 # write results
-write.csv(result, 'result1.csv', quote = FALSE, row.names = FALSE)
+write.csv(result, 'result2.csv', quote = FALSE, row.names = FALSE)
