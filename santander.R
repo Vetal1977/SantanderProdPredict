@@ -42,15 +42,14 @@ gc()
 
 # limit ages
 ageMedian <- median(combine[combine$age >= 18 & combine$age <= 90]$age)
-combine[combine$age < 18 & combine$age > 90]$age <- ageMedian
+combine[combine$age < 18 | combine$age > 90]$age <- ageMedian
 
 # remove tipodom, conyuemp and
 # remove ult_fec_cli_1t - last date as primary customer (if he isn't at the end of the month)
-combine[, c('conyuemp', 'tipodom', 'ult_fec_cli_1t') := NULL]
+combine[, c('conyuemp', 'tipodom', 'ult_fec_cli_1t', 'nomprov') := NULL]
 
 # we have code and name columns for province - remove duplicated information, province name
 # and replace NA province code with 0
-combine[, c('nomprov') := NULL]
 combine[is.na(combine$cod_prov)]$cod_prov <- 0
 gc()
 
@@ -115,6 +114,9 @@ test <- combine[combine$fecha_dato == '2016-06-28']
 rm(combine)
 gc()
 
+#write.csv(train, 'train_clean.csv', quote = FALSE, row.names = FALSE)
+#write.csv(test, 'test_clean.csv', quote = FALSE, row.names = FALSE)
+
 #char.cols <- names(train)[sapply(train, is.character)]
 #char.cols <- char.cols[!char.cols %in% c("fecha_alta")] #ignore dates for this purpose
 #for (name in char.cols) {
@@ -140,6 +142,36 @@ train[, products] <- lapply(train[, products],
                             )
 gc()
 
+#write.csv(train, 'train_status_change.csv', quote = FALSE, row.names = FALSE)
+#gc()
+train <- read.csv('train_status_change.csv', sep = ',', na.strings = 'NA', 
+               stringsAsFactors = FALSE)
+train$fecha_dato <- as.Date(train$fecha_dato)
+train$fecha_alta <- as.Date(train$fecha_alta)
+train$ind_empleado <- as.factor(train$ind_empleado)
+train$pais_residencia <- as.factor(train$pais_residencia)
+train$sexo <- as.factor(train$sexo)
+train$ind_nuevo <- as.factor(train$ind_nuevo)
+train$indrel <- as.factor(train$indrel)
+train$indrel_1mes <- as.factor(train$indrel_1mes)
+train$tiprel_1mes <- as.factor(train$tiprel_1mes)
+train$indresi <- as.factor(train$indresi)
+train$indext <- as.factor(train$indext)
+train$canal_entrada <- as.factor(train$canal_entrada)
+train$cod_prov <- as.factor(train$cod_prov)
+train$ind_actividad_cliente <- as.factor(train$ind_actividad_cliente)
+train$segmento <- as.factor(train$segmento)
+train$indfall <- as.factor(train$indfall)
+
+# convert data.frame to data.table
+#train <- data.table(train)
+#gc()
+
+# divide train data set to train and cross validation
+cross_valid <- train[train$fecha_dato == '2016-05-28',]
+train <- train[train$fecha_dato != '2016-05-28',]
+gc()
+
 # remove rows with 'Maintained' products only since it is not interesting for learning
 # actually we want to know when the status is changed to 'Added'
 
@@ -147,9 +179,18 @@ gc()
 interesting <- rowSums(train[, products] != 'Maintained')
 train <- train[interesting > 0,]
 
-# 'rotate' the data set where each row corresponds to the tripple customer ID - product - status
+# 'rotate' the train data set where each row corresponds to the tripple customer ID - product - status
 train <- train %>%
     gather(key = product, value = status, ind_ahor_fin_ult1:ind_recibo_ult1)
+
+# 'rotate' the cross validation data set where each row corresponds to the tripple customer ID - product - status
+cross_valid <- cross_valid %>%
+    gather(key = product, value = status, ind_ahor_fin_ult1:ind_recibo_ult1)
+
+# remove helper month_id and next_month_id
+train <- train[, !(names(train) %in% c('month_id', 'next_month_id', 'canal_entrada'))]
+cross_valid <- cross_valid[, !(names(cross_valid) %in% c('month_id', 'next_month_id'))]
+gc()
 
 # now we can remove all single products with status 'Maintained'
 # !train here is a data.frame
@@ -157,31 +198,26 @@ train <- filter(train, status != "Maintained")
 
 # convert data.frame to data.table
 train <- data.table(train)
-
-# remove helper month_id and next_month_id
-train[, c('month_id', 'next_month_id', 'ncodpers') := NULL]
 gc()
-
-# divide train data set to train and cross validation
-#cross_valid <- train[train$fecha_dato == '2016-05-28']
-#train <- train[train$fecha_dato != '2016-05-28']
 
 train$product <- as.factor(train$product)
 train$status <- as.factor(train$status)
 levels(train$status)[1] <- 1
 levels(train$status)[2] <- 0
-model <- glm(status ~.,family = binomial(link = 'logit'), data = train)
+model <- glm(status ~ . - ncodpers, family = binomial(link = 'logit'), data = train)
 
-#cross_valid_status <- cross_valid$status
+cross_valid_status <- cross_valid$status
 
 # MT (Malta) -> IT (Italy), SV (Salvador) -> MX (Mexiko) 
-#cross_valid[cross_valid$pais_residencia == 'MT']$pais_residencia <- 'IT'
-#cross_valid[cross_valid$pais_residencia == 'SV']$pais_residencia <- 'MX'
+cross_valid[cross_valid$pais_residencia == 'MT']$pais_residencia <- 'IT'
+cross_valid[cross_valid$pais_residencia == 'SV']$pais_residencia <- 'MX'
 
-#cross_valid[cross_valid$canal_entrada == 'KGN']$canal_entrada <- '_U'
-#cross_valid[cross_valid$canal_entrada == 'KHR']$canal_entrada <- '_U'
+cross_valid[cross_valid$canal_entrada == 'KGN']$canal_entrada <- '_U'
+cross_valid[cross_valid$canal_entrada == 'KHR']$canal_entrada <- '_U'
 
-#status_predict <- predict(model, newdata = cross_valid, type = 'response')
+likelihood <- predict(model, newdata = train, type = 'response')
+train$status_predict <- ifelse (likelihood > 0.2, '1', '2')
+train_result <- nrow(train[train$status == train$status_predict,]) / nrow(train)
 
 #cross_valid$status <- cross_valid_status
 #cross_valid$status_predict <- ifelse (status_predict > 0.6, '2', '1')
@@ -193,14 +229,30 @@ rm(train)
 gc()
 
 # prepare the test set similar to a train set
+test <- read.csv('test_clean.csv', sep = ',', na.strings = 'NA', 
+                  stringsAsFactors = FALSE)
+test$fecha_dato <- as.Date(test$fecha_dato)
+test$fecha_alta <- as.Date(test$fecha_alta)
+test$ind_empleado <- as.factor(test$ind_empleado)
+test$pais_residencia <- as.factor(test$pais_residencia)
+test$sexo <- as.factor(test$sexo)
+test$ind_nuevo <- as.factor(test$ind_nuevo)
+test$indrel <- as.factor(test$indrel)
+test$indrel_1mes <- as.factor(test$indrel_1mes)
+test$tiprel_1mes <- as.factor(test$tiprel_1mes)
+test$indresi <- as.factor(test$indresi)
+test$indext <- as.factor(test$indext)
+test$canal_entrada <- as.factor(test$canal_entrada)
+test$cod_prov <- as.factor(test$cod_prov)
+test$ind_actividad_cliente <- as.factor(test$ind_actividad_cliente)
+test$segmento <- as.factor(test$segmento)
+test$indfall <- as.factor(test$indfall)
 test <- test %>%
     gather(key = product, value = status, ind_ahor_fin_ult1:ind_recibo_ult1)
-test <- data.table(test)
 gc()
 
 test$product <- as.factor(test$product)
-test_ncodpers <- test$ncodpers
-test[, c('status', 'ncodpers') := NULL]
+test[, c('status') := NULL]
 
 # unknown countries
 test[test$pais_residencia %in% c('AL', 'BA', 'BG', 'BZ', 'CD', 'CF', 'DJ', 'DZ', 
@@ -228,12 +280,9 @@ for (i in 1:predicton_count) {
     end_idx = min(c(i*1000000, test_count))
     print(c(start_idx, end_idx))
     to_predict <- test[start_idx : end_idx]
-    status_predict <- predict(model, newdata = to_predict, type = 'response')
-    test[start_idx : end_idx]$status <- ifelse (status_predict > 0.5, 'Added', 'Dropped')
+    test[start_idx : end_idx]$likelihood <- predict(model, newdata = to_predict, type = 'response')
     gc()
 }
-test$status <- as.factor(test$status)
-test$ncodpers <- test_ncodpers
 gc()
 
 # form the result
