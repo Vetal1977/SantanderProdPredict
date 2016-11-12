@@ -3,23 +3,6 @@ library(dplyr)
 library(tidyr)
 library(reshape2)
 
-product.status.change <- function(x) {
-    if (length(x) == 1) {
-        label = ifelse(x == 1, "Added", "Maintained")
-    } 
-    else {
-        diffs <- diff(x) # difference month-by-month
-        diffs <- c(0, diffs)
-        label <- rep("Maintained", length(x))
-        label <- ifelse(diffs == 1, 
-                        "Added",
-                        ifelse(diffs == -1, 
-                               "Dropped", 
-                               "Maintained"))
-    }
-    return(label)
-}
-
 load.data <- function(filename) {
     data <- read.csv(filename, sep = ',', na.strings = 'NA', 
                      stringsAsFactors = FALSE)
@@ -41,6 +24,37 @@ load.data <- function(filename) {
     data$indfall <- as.factor(data$indfall)
     
     return(data)
+}
+
+make.age.groups <- function(df) {
+    result <- data.frame(df)
+    
+    result$age_group <- 0
+    result[result$age < 30,]$age_group <- 1
+    result[result$age >= 30 & result$age < 45,]$age_group <- 2
+    result[result$age >= 45 & result$age < 60,]$age_group <- 3
+    result[result$age >= 60 & result$age < 75,]$age_group <- 4
+    result[result$age >= 75,]$age_group <- 5
+    result$age_group <- as.factor(result$age_group)
+    return(result)
+}
+
+make.income.groups <- function(df) {
+    result <- data.frame(df)
+    
+    result$income_group <- 0
+    result[result$renta < 15000,]$income_group <- 1
+    result[result$renta >= 15000 & result$renta < 25000,]$income_group <- 2
+    result[result$renta >= 25000 & result$renta < 40000,]$income_group <- 3
+    result[result$renta >= 40000 & result$renta < 60000,]$income_group <- 4
+    result[result$renta >= 60000 & result$renta < 80000,]$income_group <- 5
+    result[result$renta >= 80000 & result$renta < 110000,]$income_group <- 6
+    result[result$renta >= 110000 & result$renta < 130000,]$income_group <- 7
+    result[result$renta >= 130000 & result$renta < 160000,]$income_group <- 8
+    result[result$renta >= 160000 & result$renta < 200000,]$income_group <- 9
+    result[result$renta >= 200000,]$income_group <- 10
+    result$income_group <- as.factor(result$income_group)
+    return(result)
 }
 
 # load train data from csv
@@ -80,38 +94,32 @@ train <- train %>%
 
 # remove unnecessary columns and all 'Maintained' products
 train <- train[, !(names(train) %in% c('month_id', 'next_month_id', 'canal_entrada'))]
-train <- filter(train, status != "Maintained")
+train <- filter(train, status != 'Maintained')
+
+# create 'product added' column (1 if 'Added', 0 - otherwise)
+train$product_added <- 0
+train[train$status == 'Added',]$product_added <- 1
+train <- train[, !(names(train) %in% c('status'))]
 
 # convert product and status to factor
 train$product <- as.factor(train$product)
-train$status <- as.factor(train$status)
+added_product_count <- nrow(train[train$product_added == 1,])
+
+# product popularity
+train$product_popularity <- 0
+product.popularity.df <- as.data.frame(
+    train %>% 
+    filter(product_added == 1) %>%
+    group_by(product) %>%
+        summarize(product_popularity = sum(product_added)/added_product_count))
 
 # make age groups
-train$age_group <- 0
-train[train$age < 30,]$age_group <- 1
-train[train$age >= 30 & train$age < 45,]$age_group <- 2
-train[train$age >= 45 & train$age < 60,]$age_group <- 3
-train[train$age >= 60 & train$age < 75,]$age_group <- 4
-train[train$age >= 75,]$age_group <- 5
-train$age_group <- as.factor(train$age_group)
+train <- make.age.groups(train)
 
 # make income groups
-train$income_group <- 0
-train[train$renta < 15000,]$income_group <- 1
-train[train$renta >= 15000 & train$renta < 25000,]$income_group <- 2
-train[train$renta >= 25000 & train$renta < 40000,]$income_group <- 3
-train[train$renta >= 40000 & train$renta < 60000,]$income_group <- 4
-train[train$renta >= 60000 & train$renta < 80000,]$income_group <- 5
-train[train$renta >= 80000 & train$renta < 110000,]$income_group <- 6
-train[train$renta >= 110000 & train$renta < 130000,]$income_group <- 7
-train[train$renta >= 130000 & train$renta < 160000,]$income_group <- 8
-train[train$renta >= 160000 & train$renta < 200000,]$income_group <- 9
-train[train$renta >= 200000,]$income_group <- 10
-train$income_group <- as.factor(train$income_group)
+train <- make.income.groups(train)
 
 # teach a model
-train$product_added <- 0
-train[train$status == 'Added',]$product_added <- 1
 model <- glm(product_added ~ pais_residencia + sexo + age_group +
                  ind_nuevo + segmento + ind_empleado +
                  ind_actividad_cliente + indresi + cod_prov +
@@ -126,27 +134,10 @@ test <- test %>%
 test <- test[test$status == 0,]
 
 # make age groups
-test$age_group <- 0
-test[test$age < 30,]$age_group <- 1
-test[test$age >= 30 & test$age < 45,]$age_group <- 2
-test[test$age >= 45 & test$age < 60,]$age_group <- 3
-test[test$age >= 60 & test$age < 75,]$age_group <- 4
-test[test$age >= 75,]$age_group <- 5
-test$age_group <- as.factor(test$age_group)
+test <- make.age.groups(test)
 
 # make income groups
-test$income_group <- 0
-test[test$renta < 15000,]$income_group <- 1
-test[test$renta >= 15000 & test$renta < 25000,]$income_group <- 2
-test[test$renta >= 25000 & test$renta < 40000,]$income_group <- 3
-test[test$renta >= 40000 & test$renta < 60000,]$income_group <- 4
-test[test$renta >= 60000 & test$renta < 80000,]$income_group <- 5
-test[test$renta >= 80000 & test$renta < 110000,]$income_group <- 6
-test[test$renta >= 110000 & test$renta < 130000,]$income_group <- 7
-test[test$renta >= 130000 & test$renta < 160000,]$income_group <- 8
-test[test$renta >= 160000 & test$renta < 200000,]$income_group <- 9
-test[test$renta >= 200000,]$income_group <- 10
-test$income_group <- as.factor(test$income_group)
+test <- make.income.groups(test)
 
 # convert product and status to factor
 test$product <- as.factor(test$product)
@@ -163,14 +154,12 @@ test[test$pais_residencia %in% c('AL', 'BA', 'BG', 'BZ', 'CD', 'CF', 'DJ', 'DZ',
 # prediction
 test_count <- nrow(test)
 predicton_count <- as.integer(test_count / 1000000) + 1
-#test$likelihood <- rep(0, nrow(test))
 test$product_added <- rep(0, nrow(test))
 for (i in 1:predicton_count) {
     start_idx <- (i - 1)*1000000 + 1
     end_idx = min(c(i*1000000, test_count))
     print(c(start_idx, end_idx))
     to_predict <- test[start_idx : end_idx,]
-    #test[start_idx : end_idx,]$likelihood <- predict(model, newdata = to_predict, type = 'response')
     test[start_idx : end_idx,]$product_added <- predict(model, newdata = to_predict, type = 'response')
     gc()
 }
@@ -181,6 +170,11 @@ gc()
 
 # order by code personal number and likelihood
 test <- test[order(test$ncodpers, -test$product_added),]
+
+# add product popularity
+test <- merge(test, product.popularity.df, by.x = 'product', by.y = 'product')
+test$combine_prediction <- 0.3 * test$product_added + 0.7 * test$product_popularity
+test <- test[order(test$ncodpers, -test$combine_prediction),]
 
 # select 5 most probable products for customers
 test_dt <- data.table(test, key = c('ncodpers'))
@@ -195,4 +189,4 @@ result_write <- result %>%
 result_write <- as.data.table(result_write)
 
 # save to csv
-write.csv(result_write, 'result5.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result6.csv', quote = FALSE, row.names = FALSE)
