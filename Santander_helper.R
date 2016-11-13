@@ -173,7 +173,7 @@ test <- test[order(test$ncodpers, -test$product_added),]
 
 # add product popularity
 test <- merge(test, product.popularity.df, by.x = 'product', by.y = 'product')
-test$combine_prediction <- 0.3 * test$product_added + 0.7 * test$product_popularity
+test$combine_prediction <- 0.1 * test$product_added + 0.9 * test$product_popularity
 test <- test[order(test$ncodpers, -test$combine_prediction),]
 
 # select 5 most probable products for customers
@@ -189,4 +189,4 @@ result_write <- result %>%
 result_write <- as.data.table(result_write)
 
 # save to csv
-write.csv(result_write, 'result6.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result11.csv', quote = FALSE, row.names = FALSE)
