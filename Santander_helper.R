@@ -2,6 +2,7 @@ library(data.table)
 library(dplyr)
 library(tidyr)
 library(reshape2)
+library(randomForest)
 
 load.data <- function(filename) {
     data <- read.csv(filename, sep = ',', na.strings = 'NA', 
@@ -126,8 +127,8 @@ product.popularity.df.ind <- as.data.frame(
         group_by(product, ncodpers) %>%
         summarize(product_popularity_ind = sum(product_added)))
 train <- left_join(train, 
-                 product.popularity.df.ind, 
-                 by = c('ncodpers' = 'ncodpers', 'product' = 'product'))
+                   product.popularity.df.ind, 
+                   by = c('ncodpers' = 'ncodpers', 'product' = 'product'))
 
 # make age groups
 train <- make.age.groups(train)
@@ -138,17 +139,17 @@ train <- make.income.groups(train)
 # teach models
 model <- glm(product_added ~ age_group +
                  ind_nuevo + segmento + ind_empleado +
-                 ind_actividad_cliente + indresi + cod_prov +
+                 ind_actividad_cliente + cod_prov +
                  product,
              family = binomial(link = 'logit'), data = train)
 
-model_prod_popularity <- lm(product_popularity_ind ~ pais_residencia + age_group +
+model_prod_popularity <- lm(product_popularity_ind ~ age_group +
                  ind_nuevo + segmento + ind_empleado +
-                 ind_actividad_cliente + indresi + cod_prov +
+                 ind_actividad_cliente + cod_prov +
                  income_group + product, 
                  data = train)
 
-rm(train)
+#rm(train)
 gc()
 
 # 'rotate' test data
@@ -179,7 +180,7 @@ gc()
 # prediction
 test_count <- nrow(test)
 predicton_count <- as.integer(test_count / 1000000) + 1
-test$product_added <- rep(0, test_count)
+test$product_added <- 0
 for (i in 1:predicton_count) {
     start_idx <- (i - 1)*1000000 + 1
     end_idx = min(c(i*1000000, test_count))
@@ -191,10 +192,10 @@ for (i in 1:predicton_count) {
     rm(to_predict)
     gc()
 }
-rm(model)
+#rm(model)
 gc()
 
-test$product_popularity_ind <- rep(0, test_count)
+test$product_popularity_ind <- 0
 for (i in 1:predicton_count) {
     start_idx <- (i - 1)*1000000 + 1
     end_idx = min(c(i*1000000, test_count))
@@ -207,7 +208,7 @@ for (i in 1:predicton_count) {
     rm(tmp)
     gc()
 }
-rm(model_prod_popularity)
+#rm(model_prod_popularity)
 gc()
 
 # add product popularity (overall)
@@ -216,29 +217,28 @@ gc()
 test <- merge(test, total.services.df, by.x = 'ncodpers', by.y = 'ncodpers', all.x = TRUE)
 gc()
 
-# add product popularity (personal)
-left_join(test, product.popularity.df.ind, by = c("ncodpers" = "ncodpers", "product" = "product"))
-gc()
-
 # clean and scale personal product popularity
 test[test$product_popularity_ind < 0,]$product_popularity_ind <- 0
 test$product_popularity_ind_scaled <- test$product_popularity_ind / test$total_services
 
-test[is.na(test$product_popularity_ind_scaled),]$product_popularity_ind_scaled <- 0
-test[is.na(test$total_services),]$total_services <- 0
-
 # combine prediction
-test[test$product_popularity_ind_scaled > 0,]$combine_prediction <- 
-    0.1 * test[test$product_popularity_ind_scaled > 0,]$product_added + 
-    0.9 * test[test$product_popularity_ind_scaled > 0,]$product_popularity_ind_scaled
+#test$combine_prediction <- 0
+#test[!is.na(test$product_popularity_ind_scaled),]$combine_prediction <- 
+#    0.1 * test[!is.na(test$product_popularity_ind_scaled),]$product_added + 
+#    0.9 * test[!is.na(test$product_popularity_ind_scaled),]$product_popularity_ind_scaled
+#+ 0.4 * test[!is.na(test$product_popularity_ind_scaled),]$product_popularity
+#gc()
+    
+#test[is.na(test$product_popularity_ind_scaled),]$combine_prediction <- 
+#    0.1 * test[is.na(test$product_popularity_ind_scaled),]$product_added + 
+#    0.9 * test[is.na(test$product_popularity_ind_scaled),]$product_popularity
 
-test[test$product_popularity_ind_scaled <= 0,]$combine_prediction <- 
-    0.1 * test[test$product_popularity_ind_scaled <= 0,]$product_added + 
-    0.9 * test[test$product_popularity_ind_scaled <= 0,]$product_popularity
+test$combine_prediction <- 0.1 * test$product_added + 0.9 * test$product_popularity
+gc()
 
 test <- test[order(test$ncodpers, -test$combine_prediction),]
 
-# select 5 most probable products for customers
+# select 7 most probable products for customers
 test_dt <- data.table(test, key = c('ncodpers'))
 result <- test_dt[, .SD[1:7], ncodpers]
 gc()
@@ -250,4 +250,4 @@ result_write <- result %>%
 result_write <- as.data.table(result_write)
 
 # save to csv
-write.csv(result_write, 'result13.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result16.csv', quote = FALSE, row.names = FALSE)
