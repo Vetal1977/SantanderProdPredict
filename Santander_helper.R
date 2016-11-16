@@ -44,16 +44,13 @@ make.income.groups <- function(df) {
     result <- data.frame(df)
     
     result$income_group <- 0
-    result[result$renta < 15000,]$income_group <- 1
-    result[result$renta >= 15000 & result$renta < 25000,]$income_group <- 2
-    result[result$renta >= 25000 & result$renta < 40000,]$income_group <- 3
-    result[result$renta >= 40000 & result$renta < 60000,]$income_group <- 4
-    result[result$renta >= 60000 & result$renta < 80000,]$income_group <- 5
-    result[result$renta >= 80000 & result$renta < 110000,]$income_group <- 6
-    result[result$renta >= 110000 & result$renta < 130000,]$income_group <- 7
-    result[result$renta >= 130000 & result$renta < 160000,]$income_group <- 8
-    result[result$renta >= 160000 & result$renta < 200000,]$income_group <- 9
-    result[result$renta >= 200000,]$income_group <- 10
+    result[result$renta < 25000,]$income_group <- 1
+    result[result$renta >= 25000 & result$renta < 45000,]$income_group <- 2
+    result[result$renta >= 45000 & result$renta < 70000,]$income_group <- 3
+    result[result$renta >= 70000 & result$renta < 90000,]$income_group <- 4
+    result[result$renta >= 90000 & result$renta < 120000,]$income_group <- 5
+    result[result$renta >= 120000 & result$renta < 160000,]$income_group <- 6
+    result[result$renta >= 160000,]$income_group <- 7
     result$income_group <- as.factor(result$income_group)
     return(result)
 }
@@ -75,60 +72,69 @@ test <- test[order(test$ncodpers), ]
 test <- merge(test, train_last_month, by = c('ncodpers'))
 
 # clean up
-rm(train)
 rm(train_last_month)
-rm(products)
-rm(products_ncodpers)
 gc()
 
 # load train data set with 'Maintained', 'Added', 'Dropped' status
-train <- load.data('train_status_change.csv')
+#train <- load.data('train_status_change.csv')
 
 # filter 'Maintained' only
-products <- grep("ind_+.*ult.*", names(train))
-interesting <- rowSums(train[, products] != 'Maintained')
-train <- train[interesting > 0,]
+#products <- grep("ind_+.*ult.*", names(train))
+#interesting <- rowSums(train[, products] != 'Maintained')
+#train <- train[interesting > 0,]
+
+# calculate product popularity for individuals
+product.popularity.individual <- as.data.table(train[, products_ncodpers])
+product.popularity.individual <- product.popularity.individual[, lapply(.SD, sum), by = ncodpers]
+cols <- colnames(product.popularity.individual)
+rows_per_customer <- 17
+product.popularity.individual[, 
+                              cols[2:25] := lapply(.SD, function(x) x/rows_per_customer),
+                              .SDcols = cols[2:25]]
+gc()
+product.popularity.individual <- as.data.frame(product.popularity.individual)
+gc()
+
+# calculate overall product popularity
+product.popularity.overall <- as.data.table(product.popularity.individual[, cols[2:25]])
+product.popularity.overall <- product.popularity.overall[, lapply(.SD, sum)]
+cols <- colnames(product.popularity.overall)
+customer_count <- nrow(product.popularity.individual)
+product.popularity.overall[, 
+                           cols[1:24] := lapply(.SD, function(x) x/customer_count),
+                           .SDcols = cols[1:24]]
+
+# rotate the product popularity 
+product.popularity.individual <- product.popularity.individual %>% 
+    melt(id = 1, measure = 2:25)
+product.popularity.overall <- product.popularity.overall %>% 
+    melt(measure = 1:24)
+gc()
 
 # 'rotate' the train data set where each row corresponds to the tripple customer ID - product - status
-train <- train %>%
-    gather(key = product, value = status, ind_ahor_fin_ult1:ind_recibo_ult1)
+#train_rotated <- train %>%
+#    gather(key = ncodpers, value = status, ind_ahor_fin_ult1:ind_recibo_ult1)
 
 # remove unnecessary columns and all 'Maintained' products
-train <- train[, !(names(train) %in% c('month_id', 'next_month_id', 'canal_entrada'))]
-train <- filter(train, status != 'Maintained')
+#train <- train[, !(names(train) %in% c('month_id', 'next_month_id', 'canal_entrada'))]
+#train <- filter(train, status != 'Maintained')
 
 # create 'product added' column (1 if 'Added', 0 - otherwise)
-train$product_added <- 0
-train[train$status == 'Added',]$product_added <- 1
-train <- train[, !(names(train) %in% c('status'))]
+#train$product_added <- 0
+#train[train$status == 'Added',]$product_added <- 1
+#train <- train[, !(names(train) %in% c('status'))]
 
 # convert product and status to factor
-train$product <- as.factor(train$product)
-added_product_count <- nrow(train[train$product_added == 1,])
+#train$product <- as.factor(train$product)
+#added_product_count <- nrow(train[train$product_added == 1,])
 
-# product popularity (overall)
-train$product_popularity <- 0
-product.popularity.df <- as.data.frame(
-    train %>% 
-    filter(product_added == 1) %>%
-    group_by(product) %>%
-        summarize(product_popularity = sum(product_added)/added_product_count))
+# merge with individual product popularity
+#train <- left_join(train, 
+#                   product.popularity.individual, 
+#                   by = c('ncodpers' = 'ncodpers', 'product' = 'product'))
 
-# total services per customer
-total.services.df <- as.data.frame(
-    train %>% 
-        filter(product_added == 1) %>%
-        group_by(ncodpers) %>%
-        summarize(total_services = sum(product_added)))
-
-# product popularity for each customer
-product.popularity.df.ind <- as.data.frame(
-    train %>% 
-        group_by(product, ncodpers) %>%
-        summarize(product_popularity_ind = sum(product_added)))
-train <- left_join(train, 
-                   product.popularity.df.ind, 
-                   by = c('ncodpers' = 'ncodpers', 'product' = 'product'))
+train.rotated <- train %>%
+    melt(id = c(2, 21:44, 8, 3, 18), measure = c(20, 17))
 
 # make age groups
 train <- make.age.groups(train)
