@@ -114,8 +114,8 @@ test <- combine[combine$fecha_dato == '2016-06-28']
 rm(combine)
 gc()
 
-#write.csv(train, 'train_clean.csv', quote = FALSE, row.names = FALSE)
-#write.csv(test, 'test_clean.csv', quote = FALSE, row.names = FALSE)
+write.table(train, 'train_clean.csv', quote = FALSE, row.names = FALSE, sep = ';')
+write.table(test, 'test_clean.csv', quote = FALSE, row.names = FALSE, sep = ';')
 
 #char.cols <- names(train)[sapply(train, is.character)]
 #char.cols <- char.cols[!char.cols %in% c("fecha_alta")] #ignore dates for this purpose
@@ -142,8 +142,8 @@ train[, products] <- lapply(train[, products],
                             )
 gc()
 
-#write.csv(train, 'train_status_change.csv', quote = FALSE, row.names = FALSE)
-#gc()
+write.table(train, 'train_status_change.csv', quote = FALSE, row.names = FALSE, sep = ';')
+gc()
 train <- read.csv('train_status_change.csv', sep = ',', na.strings = 'NA', 
                stringsAsFactors = FALSE)
 train$fecha_dato <- as.Date(train$fecha_dato)

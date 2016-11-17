@@ -5,8 +5,10 @@ library(reshape2)
 library(randomForest)
 
 load.data <- function(filename) {
-    data <- read.csv(filename, sep = ',', na.strings = 'NA', 
+    data <- as.data.frame(
+        fread(filename, sep = ';', na.strings = 'NA', 
                      stringsAsFactors = FALSE)
+    )
     data$fecha_dato <- as.Date(data$fecha_dato)
     data$fecha_alta <- as.Date(data$fecha_alta)
     data$ind_empleado <- as.factor(data$ind_empleado)
@@ -75,14 +77,6 @@ test <- merge(test, train_last_month, by = c('ncodpers'))
 rm(train_last_month)
 gc()
 
-# load train data set with 'Maintained', 'Added', 'Dropped' status
-#train <- load.data('train_status_change.csv')
-
-# filter 'Maintained' only
-#products <- grep("ind_+.*ult.*", names(train))
-#interesting <- rowSums(train[, products] != 'Maintained')
-#train <- train[interesting > 0,]
-
 # calculate product popularity for individuals
 product.popularity.individual <- as.data.table(train[, products_ncodpers])
 product.popularity.individual <- product.popularity.individual[, lapply(.SD, sum), by = ncodpers]
@@ -107,34 +101,43 @@ product.popularity.overall[,
 # rotate the product popularity 
 product.popularity.individual <- product.popularity.individual %>% 
     melt(id = 1, measure = 2:25)
+colnames(product.popularity.individual) <- c('ncodpers', 'product', 'popularity')
 product.popularity.overall <- product.popularity.overall %>% 
     melt(measure = 1:24)
+colnames(product.popularity.overall) <- c('product', 'popularity')
+gc()
+
+# load train data set with 'Maintained', 'Added', 'Dropped' status
+train <- load.data('train_status_change.csv')
+
+# filter 'Maintained' only
+products <- grep("ind_+.*ult.*", names(train))
+interesting <- rowSums(train[, products] != 'Maintained')
+train <- train[interesting > 0,]
+rm(interesting)
 gc()
 
 # 'rotate' the train data set where each row corresponds to the tripple customer ID - product - status
-#train_rotated <- train %>%
-#    gather(key = ncodpers, value = status, ind_ahor_fin_ult1:ind_recibo_ult1)
+train <- train %>%
+    gather(key = product, value = status, ind_ahor_fin_ult1:ind_recibo_ult1)
 
 # remove unnecessary columns and all 'Maintained' products
-#train <- train[, !(names(train) %in% c('month_id', 'next_month_id', 'canal_entrada'))]
-#train <- filter(train, status != 'Maintained')
+train <- train[, !(names(train) %in% c('month_id', 'next_month_id', 'canal_entrada'))]
+train <- filter(train, status != 'Maintained')
 
 # create 'product added' column (1 if 'Added', 0 - otherwise)
-#train$product_added <- 0
-#train[train$status == 'Added',]$product_added <- 1
-#train <- train[, !(names(train) %in% c('status'))]
-
-# convert product and status to factor
-#train$product <- as.factor(train$product)
-#added_product_count <- nrow(train[train$product_added == 1,])
+train$product_added <- 0
+train[train$status == 'Added',]$product_added <- 1
+train <- train[, !(names(train) %in% c('status'))]
 
 # merge with individual product popularity
-#train <- left_join(train, 
-#                   product.popularity.individual, 
-#                   by = c('ncodpers' = 'ncodpers', 'product' = 'product'))
+product.popularity.individual$product <- as.character(product.popularity.individual$product)
+train <- left_join(train, 
+                   product.popularity.individual, 
+                   by = c('ncodpers' = 'ncodpers', 'product' = 'product'))
 
-train.rotated <- train %>%
-    melt(id = c(2, 21:44, 8, 3, 18), measure = c(20, 17))
+# convert product and status to factor
+train$product <- as.factor(train$product)
 
 # make age groups
 train <- make.age.groups(train)
@@ -146,10 +149,10 @@ train <- make.income.groups(train)
 model <- glm(product_added ~ age_group +
                  ind_nuevo + segmento + ind_empleado +
                  ind_actividad_cliente + nomprov +
-                 product,
+                 income_group + product,
              family = binomial(link = 'logit'), data = train)
 
-model_prod_popularity <- lm(product_popularity_ind ~ age_group +
+model_prod_popularity <- lm(popularity ~ age_group +
                  ind_nuevo + segmento + ind_empleado +
                  ind_actividad_cliente + nomprov +
                  income_group + product, 
@@ -174,13 +177,12 @@ test$product <- as.factor(test$product)
 test <- test[, !(names(test) %in% c('status', 'canal_entrada'))]
 
 # unknown countries
-test[test$pais_residencia %in% c('AL', 'BA', 'BG', 'BZ', 'CD', 'CF', 'DJ', 'DZ', 
-                                 'EC', 'EE', 'EG', 'GE', 'GH', 'GI', 'GM', 'GN', 
-                                 'GT', 'GW', 'HR', 'HU', 'IS', 'JM', 'KH', 'KW', 
-                                 'KZ', 'LB', 'LT', 'LV', 'LY', 'MD', 'MK', 'ML', 
-                                 'MM', 'MR', 'MZ', 'NI', 'PH', 'PK', 'RS', 'SK', 
-                                 'SL', 'TG', 'TH', 'TN', 'TW', 'UA', 'ZW'),]$pais_residencia <- 'ES'
-rm(interesting)
+#test[test$pais_residencia %in% c('AL', 'BA', 'BG', 'BZ', 'CD', 'CF', 'DJ', 'DZ', 
+#                                 'EC', 'EE', 'EG', 'GE', 'GH', 'GI', 'GM', 'GN', 
+#                                 'GT', 'GW', 'HR', 'HU', 'IS', 'JM', 'KH', 'KW', 
+#                                 'KZ', 'LB', 'LT', 'LV', 'LY', 'MD', 'MK', 'ML', 
+#                                 'MM', 'MR', 'MZ', 'NI', 'PH', 'PK', 'RS', 'SK', 
+#                                 'SL', 'TG', 'TH', 'TN', 'TW', 'UA', 'ZW'),]$pais_residencia <- 'ES'
 gc()
 
 # prediction
@@ -218,29 +220,25 @@ for (i in 1:predicton_count) {
 gc()
 
 # add product popularity (overall)
-test <- merge(test, product.popularity.df, by.x = 'product', by.y = 'product', all.x = TRUE)
-gc()
-test <- merge(test, total.services.df, by.x = 'ncodpers', by.y = 'ncodpers', all.x = TRUE)
+test <- merge(test, product.popularity.overall, by.x = 'product', by.y = 'product', all.x = TRUE)
 gc()
 
 # clean and scale personal product popularity
 test[test$product_popularity_ind < 0,]$product_popularity_ind <- 0
-test$product_popularity_ind_scaled <- test$product_popularity_ind / test$total_services
 
 # combine prediction
-#test$combine_prediction <- 0
-#test[!is.na(test$product_popularity_ind_scaled),]$combine_prediction <- 
-#    0.1 * test[!is.na(test$product_popularity_ind_scaled),]$product_added + 
-#    0.9 * test[!is.na(test$product_popularity_ind_scaled),]$product_popularity_ind_scaled
-#+ 0.4 * test[!is.na(test$product_popularity_ind_scaled),]$product_popularity
-#gc()
+test$combine_prediction <- 0
+test$combine_prediction <- 0.1 * test$product_added + 
+    0.1 * test$product_popularity_ind
+    0.8 * test$product_popularity
+gc()
     
 #test[is.na(test$product_popularity_ind_scaled),]$combine_prediction <- 
 #    0.1 * test[is.na(test$product_popularity_ind_scaled),]$product_added + 
 #    0.9 * test[is.na(test$product_popularity_ind_scaled),]$product_popularity
 
-test$combine_prediction <- 0.1 * test$product_added + 0.9 * test$product_popularity
-gc()
+#test$combine_prediction <- 0.1 * test$product_added + 0.9 * test$product_popularity
+#gc()
 
 test <- test[order(test$ncodpers, -test$combine_prediction),]
 
