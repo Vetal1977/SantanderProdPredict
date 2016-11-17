@@ -19,7 +19,7 @@ load.data <- function(filename) {
     data$indresi <- as.factor(data$indresi)
     data$indext <- as.factor(data$indext)
     data$canal_entrada <- as.factor(data$canal_entrada)
-    data$cod_prov <- as.factor(data$cod_prov)
+    data$nomprov <- as.factor(data$nomprov)
     data$ind_actividad_cliente <- as.factor(data$ind_actividad_cliente)
     data$segmento <- as.factor(data$segmento)
     data$indfall <- as.factor(data$indfall)
@@ -145,13 +145,13 @@ train <- make.income.groups(train)
 # teach models
 model <- glm(product_added ~ age_group +
                  ind_nuevo + segmento + ind_empleado +
-                 ind_actividad_cliente + cod_prov +
+                 ind_actividad_cliente + nomprov +
                  product,
              family = binomial(link = 'logit'), data = train)
 
 model_prod_popularity <- lm(product_popularity_ind ~ age_group +
                  ind_nuevo + segmento + ind_empleado +
-                 ind_actividad_cliente + cod_prov +
+                 ind_actividad_cliente + nomprov +
                  income_group + product, 
                  data = train)
 
