@@ -145,18 +145,23 @@ train <- make.age.groups(train)
 # make income groups
 train <- make.income.groups(train)
 
+# cross validation
+cross.validation.df <- train[train$fecha_dato == '2016-05-28',]
+train.df <- train[train$fecha_dato != '2016-05-28',]
+
 # teach models
 model <- glm(product_added ~ age_group +
                  ind_nuevo + segmento + ind_empleado +
                  ind_actividad_cliente + nomprov +
                  income_group + product,
-             family = binomial(link = 'logit'), data = train)
+             family = binomial(link = 'logit'), 
+             data = train.df)
 
 model_prod_popularity <- lm(popularity ~ age_group +
-                 ind_nuevo + segmento + ind_empleado +
+                 ind_nuevo + segmento + #ind_empleado +
                  ind_actividad_cliente + nomprov +
-                 income_group + product, 
-                 data = train)
+                 renta + product, 
+                 data = train.df)
 
 #rm(train)
 gc()
