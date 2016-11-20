@@ -3,6 +3,7 @@ library(dplyr)
 library(tidyr)
 library(reshape2)
 library(randomForest)
+library(nnet)
 
 load.data <- function(filename) {
     data <- as.data.frame(
@@ -157,14 +158,25 @@ model <- glm(product_added ~ age_group +
              family = binomial(link = 'logit'), 
              data = train.df)
 
-model_prod_popularity <- lm(popularity ~ age_group +
-                 ind_nuevo + segmento + #ind_empleado +
-                 ind_actividad_cliente + nomprov +
-                 renta + product, 
-                 data = train.df)
+train.df$popularity <- as.factor(train.df$popularity)
+model_prod_popularity <- multinom(popularity ~ age_group +
+                                 ind_nuevo + segmento + ind_empleado +
+                                 ind_actividad_cliente +
+                                 income_group + product, 
+                             data = train.df)
 
 #rm(train)
 gc()
+
+#fitted_data <- fitted(model_prod_popularity)
+#max.probs <- apply(fitted_data, 1, function(x) which.max(x))
+#fitted.result <- fitted_data[, max.probs]
+#plot_data <- data.frame(Observed = train.df$popularity,
+#                        Fitted = tmp)
+#plot(plot_data)
+
+res <- cbind(res, x = rep(dat$x, 2))
+head(res)
 
 # 'rotate' test data
 test <- test %>%
