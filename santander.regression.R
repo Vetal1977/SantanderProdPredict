@@ -58,6 +58,18 @@ make.income.groups <- function(df) {
     return(result)
 }
 
+prepare.predict.matrix <- function(df) {
+    result <- df[, c('age', 'ind_nuevo', 'segmento',
+                     'ind_empleado', 'ind_actividad_cliente',
+                     'nomprov', 'renta')]
+    result$segmento <- as.numeric(result$segmento)
+    result$nomprov <- as.numeric(result$nomprov)
+    result$ind_empleado <- as.numeric(result$ind_empleado)
+    result <- as.matrix(result)
+    mode(result) <- "numeric"
+    return(result)
+}
+
 # load train data from csv
 train_clean <- load.data('train_clean.csv')
 train_clean_last_month <- train_clean[train_clean$fecha_dato == '2016-05-28',]
@@ -120,27 +132,20 @@ param <- list("objective" = "multi:softprob",    # multiclass classification
               "num_class" = num.class,    # number of classes 
               "eval_metric" = "mlogloss",    # evaluation metric 
               "nthread" = 8,   # number of threads to be used 
-              "max_depth" = 16,    # maximum depth of tree 
-              "eta" = 0.3,    # step size shrinkage 
+              "max_depth" = 8,    # maximum depth of tree 
+              "eta" = 0.05,    # step size shrinkage 
               "gamma" = 0,    # minimum loss reduction 
               "subsample" = 1,    # part of data instances to grow tree 
               "colsample_bytree" = 1,  # subsample ratio of columns when constructing each tree 
-              "min_child_weight" = 12  # minimum sum of instance weight needed in a child 
+              "min_child_weight" = 1  # minimum sum of instance weight needed in a child 
 )
 
-# extract train features and transform them to matrix
-train.june.2015.bst <- train.june.2015[, c('age_group', 'ind_nuevo', 'segmento',
-                                           'ind_empleado', 'ind_actividad_cliente',
-                                           'nomprov', 'income_group')]
-train.june.2015.bst$segmento <- as.numeric(train.june.2015.bst$segmento)
-train.june.2015.bst$nomprov <- as.numeric(train.june.2015.bst$nomprov)
-train.june.2015.bst$ind_empleado <- as.numeric(train.june.2015.bst$ind_empleado)
-train.june.2015.bst <- as.matrix(train.june.2015.bst)
-mode(train.june.2015.bst) <- "numeric"
+# prepare train matrix
+train.june.2015.bst <- prepare.predict.matrix(train.june.2015)
 
 # train the model
 bst <- xgboost(param = param, data = train.june.2015.bst, 
-               label = product.lab, nrounds = 20, nfold = 4)
+               label = product.lab, nrounds = 50)
 gc()
 
 # make age groups
@@ -148,9 +153,6 @@ test <- make.age.groups(test)
 
 # make income groups
 test <- make.income.groups(test)
-
-# convert product and status to factor
-test$product <- as.factor(test$product)
 gc()
 
 # unknown segment _U in test comparing to june 2015
@@ -165,32 +167,28 @@ test <- test[, !(names(test) %in% c('ind_ahor_fin_ult1', 'ind_aval_fin_ult1'))]
 # prediction
 
 # preparation
-to_predict <- test[, c('age_group', 'ind_nuevo', 'segmento',
-                       'ind_empleado', 'ind_actividad_cliente',
-                       'nomprov', 'income_group')]
-to_predict$segmento <- as.numeric(to_predict$segmento)
-to_predict$nomprov <- as.numeric(to_predict$nomprov)
-to_predict$ind_empleado <- as.numeric(to_predict$ind_empleado)
-to_predict <- as.matrix(to_predict)
-mode(to_predict) <- "numeric"
+to_predict <- prepare.predict.matrix(test)
 
 # predic and interpret the results
 pred <- predict(bst, newdata = to_predict)
 pred <- matrix(pred, nrow=num.class, ncol=length(pred)/num.class)
 pred <- t(pred)
+colnames(pred) <- levels(train.june.2015$product)
 
 # exclude preditions for already bought products
 products <- grep("ind_+.*ult.*", names(test))
-prod_status <- as.matrix(test[, products])
+prod_status <- test[, products]
+prod_status <- as.matrix(prod_status[, colnames(pred)])
 prod_status <- (1 - prod_status)
 pred <- prod_status * pred
 
 # put predictions to test data.frame
-test[, products] <- pred
+test[, products] <- NULL
+test <- cbind(test, pred)
 
 # 'rotate' test data
 test <- test %>%
-    gather(key = product, value = prob, ind_cco_fin_ult1:ind_recibo_ult1)
+    gather(key = product, value = prob, ind_cco_fin_ult1:ind_viv_fin_ult1)
 
 # remove products with probability <= 0
 test <- test[test$prob > 0,]
@@ -210,4 +208,4 @@ result_write <- result %>%
 result_write <- as.data.table(result_write)
 
 # save to csv
-write.csv(result_write, 'result21.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result22.csv', quote = FALSE, row.names = FALSE)
