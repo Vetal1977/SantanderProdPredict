@@ -83,95 +83,44 @@ gc()
 
 # load train data set with 'Maintained', 'Added', 'Dropped' status
 train <- load.data('train_status_change.csv')
+train.june.2015 <- filter(train, fecha_dato == '2015-06-28')
 
 # filter 'Maintained' only
-products <- grep("ind_+.*ult.*", names(train))
-interesting <- rowSums(train[, products] != 'Maintained')
-train <- train[interesting > 0,]
+products <- grep("ind_+.*ult.*", names(train.june.2015))
+interesting <- rowSums(train.june.2015[, products] != 'Maintained')
+train.june.2015 <- train.june.2015[interesting > 0,]
+rm(interesting)
 
 # 'rotate' the train data set where each row corresponds to the tripple customer ID - product - status
-train <- train %>%
+train.june.2015 <- train.june.2015 %>%
     gather(key = product, value = status, ind_ahor_fin_ult1:ind_recibo_ult1)
 
 # remove unnecessary columns and all 'Maintained' products
-train <- train[, !(names(train) %in% c('month_id', 'next_month_id', 'canal_entrada'))]
-train <- filter(train, status != 'Maintained')
+train.june.2015 <- train.june.2015[, !(names(train.june.2015) %in% c('month_id', 'next_month_id'))]
+train.june.2015 <- filter(train.june.2015, status != 'Maintained')
 
 # create 'product added' column (1 if 'Added', 0 - otherwise)
-train$product_added <- 0
-train[train$status == 'Added',]$product_added <- 1
-train <- train[, !(names(train) %in% c('status'))]
+train.june.2015$product_added <- 0
+train.june.2015[train.june.2015$status == 'Added',]$product_added <- 1
+train.june.2015 <- train.june.2015[, !(names(train.june.2015) %in% c('status'))]
 
 # convert product and status to factor
-train$product <- as.factor(train$product)
-added_product_count <- nrow(train[train$product_added == 1,])
-
-# product popularity (overall)
-product.popularity.df <- as.data.frame(
-    train %>% 
-    filter(product_added == 1) %>%
-    group_by(product) %>%
-        summarize(product_popularity = sum(product_added)/added_product_count))
+train.june.2015$product <- as.factor(train.june.2015$product)
+added_product_count <- nrow(train.june.2015[train.june.2015$product_added == 1,])
 
 # make age groups
-train <- make.age.groups(train)
+train.june.2015 <- make.age.groups(train.june.2015)
 
 # make income groups
-train <- make.income.groups(train)
-
-# total services per customer
-added.services.df <- as.data.frame(
-    train %>% 
-        filter(product_added == 1) %>%
-        group_by(ncodpers) %>%
-        summarize(added_services = sum(product_added)))
-train.prod.popularity <- merge(train, 
-               added.services.df, 
-               by.x = 'ncodpers',
-               by.y = 'ncodpers')
-
-# product popularity for each customer
-product.popularity.df.ind <- as.data.frame(
-    train %>% 
-        group_by(product, ncodpers) %>%
-        summarize(product_popularity_ind = sum(product_added)))
-
-train.prod.popularity  <- left_join(train.prod.popularity, 
-                   product.popularity.df.ind, 
-                   by = c('ncodpers' = 'ncodpers', 'product' = 'product'))
-train.prod.popularity$product_popularity_ind_scaled <- 
-    train.prod.popularity$product_popularity_ind / train.prod.popularity$added_services
-
-train.prod.popularity.final <- as.data.frame(
-    train.prod.popularity %>%
-        select(ncodpers, product, age_group, ind_nuevo, 
-                 segmento, ind_empleado, ind_actividad_cliente, 
-                 nomprov, product_popularity_ind_scaled, renta)) %>%
-    distinct
-    
-train.prod.popularity.final <- merge(train.prod.popularity.final, 
-                                     product.popularity.df, 
-                                     by.x = 'product', 
-                                     by.y = 'product', 
-                                     all.x = TRUE)
+train.june.2015 <- make.income.groups(train.june.2015)
 
 # teach models
 model <- glm(product_added ~ age_group +
                  ind_nuevo + segmento + ind_empleado +
                  ind_actividad_cliente + nomprov +
-                 product,
-             family = binomial(link = 'logit'), data = train)
+                 income_group + product,
+             family = binomial(link = 'logit'), data = train.june.2015)
 
-model_prod_popularity <- lm(product_popularity_ind_scaled ~ age_group +
-                 ind_nuevo + segmento + ind_empleado +
-                 ind_actividad_cliente + nomprov +
-                 renta + product, 
-                 data = train.prod.popularity.final)
-
-model_tmp <- lm(product_popularity_ind_scaled ~ product_popularity, 
-                            data = train.prod.popularity.final)
-
-#rm(train)
 gc()
 
 # 'rotate' test data
@@ -187,7 +136,7 @@ test <- make.income.groups(test)
 
 # convert product and status to factor
 test$product <- as.factor(test$product)
-test <- test[, !(names(test) %in% c('status', 'canal_entrada'))]
+test <- test[, !(names(test) %in% c('status'))]
 
 # unknown countries
 test[test$pais_residencia %in% c('AL', 'BA', 'BG', 'BZ', 'CD', 'CF', 'DJ', 'DZ', 
@@ -196,8 +145,16 @@ test[test$pais_residencia %in% c('AL', 'BA', 'BG', 'BZ', 'CD', 'CF', 'DJ', 'DZ',
                                  'KZ', 'LB', 'LT', 'LV', 'LY', 'MD', 'MK', 'ML', 
                                  'MM', 'MR', 'MZ', 'NI', 'PH', 'PK', 'RS', 'SK', 
                                  'SL', 'TG', 'TH', 'TN', 'TW', 'UA', 'ZW'),]$pais_residencia <- 'ES'
-rm(interesting)
 gc()
+
+# unknown segment _U in test comparing to june 2015
+test[test$segmento %in% c('_U'),]$segmento <- '02 - PARTICULARES'
+
+# unknown employee index S in test comparing to june 2015
+test[test$ind_empleado %in% c('S'),]$ind_empleado <- 'N'
+
+# unknown product ind_aval_fin_ult1 in test comparing to june 2015
+test <- filter(test, product != 'ind_aval_fin_ult1')
 
 # prediction
 test_count <- nrow(test)
@@ -214,37 +171,13 @@ for (i in 1:predicton_count) {
     rm(to_predict)
     gc()
 }
-#rm(model)
-gc()
-
-test$product_popularity_ind_scaled <- 0
-for (i in 1:predicton_count) {
-    start_idx <- (i - 1)*1000000 + 1
-    end_idx = min(c(i*1000000, test_count))
-    print(c(start_idx, end_idx))
-    to_predict <- test[start_idx : end_idx,]
-    tmp <- predict(model_prod_popularity, newdata = to_predict, interval = 'prediction')
-    tmp <- as.data.frame(tmp)
-    test[start_idx : end_idx,]$product_popularity_ind_scaled <- tmp$fit
-    rm(to_predict)
-    rm(tmp)
-    gc()
-}
-#rm(model_prod_popularity)
-gc()
 
 # add product popularity (overall)
-test <- merge(test, product.popularity.df, by.x = 'product', by.y = 'product', all.x = TRUE)
-gc()
-#test <- merge(test, total.services.df, by.x = 'ncodpers', by.y = 'ncodpers', all.x = TRUE)
+#test <- merge(test, product.popularity.df, by.x = 'product', by.y = 'product', all.x = TRUE)
 #gc()
 
-# clean and scale personal product popularity
-#test[test$product_popularity_ind < 0,]$product_popularity_ind <- 0
-#test$product_popularity_ind_scaled <- test$product_popularity_ind / test$total_services
-
 # combine prediction
-#test$combine_prediction <- 0
+#test$combine_prediction <- test$product_added
 #test[!is.na(test$product_popularity_ind_scaled),]$combine_prediction <- 
 #    0.1 * test[!is.na(test$product_popularity_ind_scaled),]$product_added + 
 #    0.9 * test[!is.na(test$product_popularity_ind_scaled),]$product_popularity_ind_scaled
@@ -255,10 +188,9 @@ gc()
 #    0.1 * test[is.na(test$product_popularity_ind_scaled),]$product_added + 
 #    0.9 * test[is.na(test$product_popularity_ind_scaled),]$product_popularity
 
-test$combine_prediction <- 0.1 * test$product_popularity_ind_scaled + 10 * test$product_popularity
-gc()
+#gc()
 
-test <- test[order(test$ncodpers, -test$combine_prediction),]
+test <- test[order(test$ncodpers, -test$product_added),]
 
 # select 7 most probable products for customers
 test_dt <- data.table(test, key = c('ncodpers'))
@@ -272,4 +204,4 @@ result_write <- result %>%
 result_write <- as.data.table(result_write)
 
 # save to csv
-write.csv(result_write, 'result19.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result20.csv', quote = FALSE, row.names = FALSE)
