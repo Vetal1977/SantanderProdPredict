@@ -61,10 +61,19 @@ make.income.groups <- function(df) {
 prepare.predict.matrix <- function(df) {
     result <- df[, c('age', 'ind_nuevo', 'segmento',
                      'ind_empleado', 'ind_actividad_cliente',
-                     'nomprov', 'renta')]
+                     'nomprov', 'renta',
+                     'antiguedad', 'indrel',
+                     'tiprel_1mes', 'sexo',
+                     'indfall', 'canal_entrada',
+                     'indext')]
     result$segmento <- as.numeric(result$segmento)
     result$nomprov <- as.numeric(result$nomprov)
     result$ind_empleado <- as.numeric(result$ind_empleado)
+    result$tiprel_1mes <- as.numeric(result$tiprel_1mes)
+    result$sexo <- as.numeric(result$sexo)
+    result$indfall <- as.numeric(result$indfall)
+    result$canal_entrada <- as.numeric(result$canal_entrada)
+    result$indext <- as.numeric(result$indext)
     result <- as.matrix(result)
     mode(result) <- "numeric"
     return(result)
@@ -127,7 +136,32 @@ train.june.2015 <- make.income.groups(train.june.2015)
 num.class <- length(levels(train.june.2015$product))
 product.lab <- as.matrix(as.integer(train.june.2015$product) - 1)
 
-# xgboost parameters
+# prepare train matrix
+train.june.2015.bst <- prepare.predict.matrix(train.june.2015)
+
+# parameters
+#param <- list("objective" = "multi:softprob",    # multiclass classification 
+#              "num_class" = num.class,    # number of classes 
+#              "eval_metric" = "merror",    # evaluation metric 
+#              "nthread" = 8,   # number of threads to be used 
+#              "max_depth" = 8,    # maximum depth of tree 
+#              "eta" = 0.01,    # step size shrinkage 
+#              "gamma" = 0,    # minimum loss reduction 
+#              "subsample" = 1,    # part of data instances to grow tree 
+#              "colsample_bytree" = 1,  # subsample ratio of columns when constructing each tree 
+#              "min_child_weight" = 1  # minimum sum of instance weight needed in a child 
+#)
+
+# set random seed, for reproducibility
+set.seed(1234)
+
+# cross-validation
+#bst.cv <- xgb.cv(param = param, data = train.june.2015.bst, 
+#                 label = product.lab, nfold = 4, nrounds = 50, 
+#                 prediction = TRUE)
+#min.merror.idx = which.min(bst.cv$dt[, test.merror.mean])
+
+# train the model
 param <- list("objective" = "multi:softprob",    # multiclass classification 
               "num_class" = num.class,    # number of classes 
               "eval_metric" = "mlogloss",    # evaluation metric 
@@ -140,10 +174,6 @@ param <- list("objective" = "multi:softprob",    # multiclass classification
               "min_child_weight" = 1  # minimum sum of instance weight needed in a child 
 )
 
-# prepare train matrix
-train.june.2015.bst <- prepare.predict.matrix(train.june.2015)
-
-# train the model
 bst <- xgboost(param = param, data = train.june.2015.bst, 
                label = product.lab, nrounds = 50)
 gc()
@@ -208,4 +238,4 @@ result_write <- result %>%
 result_write <- as.data.table(result_write)
 
 # save to csv
-write.csv(result_write, 'result22.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result25.csv', quote = FALSE, row.names = FALSE)
