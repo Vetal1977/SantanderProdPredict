@@ -46,11 +46,11 @@ combine[combine$age < 18 | combine$age > 90]$age <- ageMedian
 
 # remove tipodom, conyuemp and
 # remove ult_fec_cli_1t - last date as primary customer (if he isn't at the end of the month)
-combine[, c('conyuemp', 'tipodom', 'ult_fec_cli_1t', 'nomprov') := NULL]
+# we have code and name columns for province - remove duplicated information, province code
+combine[, c('conyuemp', 'tipodom', 'ult_fec_cli_1t', 'cod_prov') := NULL]
 
-# we have code and name columns for province - remove duplicated information, province name
-# and replace NA province code with 0
-combine[is.na(combine$cod_prov)]$cod_prov <- 0
+# and replace empty province code with _U
+combine$nomprov[combine$nomprov == ''] <- '_U'
 gc()
 
 # at the first step we calculate medians separately for Spain (separted for each province) and foreigners
@@ -59,13 +59,13 @@ combine[is.na(combine$renta) & combine$pais_residencia != 'ES']$renta <- medianI
 
 medianSpain <- median(combine[!is.na(combine$renta) & combine$pais_residencia == 'ES']$renta)
 incomesForSpain <- combine[!is.na(combine$renta) & combine$pais_residencia == 'ES', 
-                         by = cod_prov, 
-                         lapply(.SD, median),
-                         .SDcols = c('renta')]
+                           by = nomprov, 
+                           lapply(.SD, median),
+                           .SDcols = c('renta')]
 tmp <- merge(combine[is.na(combine$renta) & combine$pais_residencia == 'ES'], 
              incomesForSpain, 
              all.x = TRUE,
-             by = 'cod_prov')
+             by = 'nomprov')
 tmp$renta <- tmp$renta.y
 tmp[, c('renta.x', 'renta.y') := NULL]
 combine <- combine[!is.na(combine$renta)]
@@ -102,7 +102,7 @@ combine$tiprel_1mes <- as.factor(combine$tiprel_1mes)
 combine$indresi <- as.factor(combine$indresi)
 combine$indext <- as.factor(combine$indext)
 combine$canal_entrada <- as.factor(combine$canal_entrada)
-combine$cod_prov <- as.factor(combine$cod_prov)
+combine$nomprov <- as.factor(combine$nomprov)
 combine$ind_actividad_cliente <- as.factor(combine$ind_actividad_cliente)
 combine$segmento <- as.factor(combine$segmento)
 gc()
@@ -114,8 +114,8 @@ test <- combine[combine$fecha_dato == '2016-06-28']
 rm(combine)
 gc()
 
-write.csv(train, 'train_clean.csv', quote = FALSE, row.names = FALSE)
-write.csv(test, 'test_clean.csv', quote = FALSE, row.names = FALSE)
+write.table(train, 'train_clean.csv', quote = FALSE, row.names = FALSE, sep = ';')
+write.table(test, 'test_clean.csv', quote = FALSE, row.names = FALSE, sep = ';')
 
 # introduce month IDs to apply the product status change from month to month
 train <- train %>% arrange(fecha_dato)
@@ -126,9 +126,9 @@ train$next_month_id <- train$month_id + 1
 products <- grep("ind_+.*ult.*", names(train))
 train[, products] <- lapply(train[, products], 
                             function(x) {
-                                    return(ave(x, train$ncodpers, FUN = product.status.change))
-                                }
-                            )
-gc()
+                                return(ave(x, train$ncodpers, FUN = product.status.change))
+                            }
+)
 
-write.csv(train, 'train_status_change.csv', quote = FALSE, row.names = FALSE)
+write.table(train, 'train_status_change.csv', quote = FALSE, row.names = FALSE, sep = ';')
+
