@@ -238,4 +238,4 @@ result_write <- result %>%
 result_write <- as.data.table(result_write)
 
 # save to csv
-write.csv(result_write, 'result25.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result27.csv', quote = FALSE, row.names = FALSE)
