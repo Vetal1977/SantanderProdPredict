@@ -26,7 +26,7 @@ train <- fread('train_ver2.csv', sep = ',', na.strings = 'NA',
 
 # seems, we have 27734 useless rows with age, ind_nuevo, antiguedad and some other set to NA
 # while other features set to ''. just remove them
-train <- train[!is.na(train$age)]
+#train <- train[!is.na(train$age)]
 
 # we have NA's for ind_nomina_ult1 & ind_nom_pens_ult1. set them to 0
 train[is.na(train$ind_nomina_ult1)]$ind_nomina_ult1 <- 0
@@ -41,7 +41,8 @@ rm(test)
 gc()
 
 # limit ages
-ageMedian <- median(combine[combine$age >= 18 & combine$age <= 90]$age)
+ageMedian <- median(combine[combine$age >= 18 & combine$age <= 90]$age, na.rm = TRUE)
+combine[is.na(combine$age)]$age <- ageMedian
 combine[combine$age < 18 | combine$age > 90]$age <- ageMedian
 
 # remove tipodom, conyuemp and
@@ -51,13 +52,16 @@ combine[, c('conyuemp', 'tipodom', 'ult_fec_cli_1t', 'cod_prov') := NULL]
 
 # and replace empty province code with _U
 combine$nomprov[combine$nomprov == ''] <- '_U'
+combine[combine$pais_residencia == '']$pais_residencia <- '_U'
 gc()
 
 # at the first step we calculate medians separately for Spain (separted for each province) and foreigners
-medianIncomeForeign <- median(combine[!is.na(combine$renta) & combine$pais_residencia != 'ES']$renta)
+medianSpain <- median(combine[combine$pais_residencia == 'ES']$renta, na.rm = TRUE)
+medianIncomeForeign <- median(combine[combine$pais_residencia != 'ES']$renta, na.rm = TRUE)
+
+combine[is.na(combine$renta) & combine$pais_residencia == '_U']$renta <- medianSpain
 combine[is.na(combine$renta) & combine$pais_residencia != 'ES']$renta <- medianIncomeForeign
 
-medianSpain <- median(combine[!is.na(combine$renta) & combine$pais_residencia == 'ES']$renta)
 incomesForSpain <- combine[!is.na(combine$renta) & combine$pais_residencia == 'ES', 
                            by = nomprov, 
                            lapply(.SD, median),
@@ -74,19 +78,36 @@ combine[is.na(combine$renta)]$renta <- medianSpain  # ES as country + 0 as provi
 rm(tmp)
 gc()
 
-# replace empty strings
+# check for empty strings
+char.cols <- names(combine)[sapply(combine, is.character)]
+for (name in char.cols){
+    print(sprintf("Unique values for %s:", name))
+    print(unique(combine[[name]]))
+    cat('\n')
+}
+
+# replace empty strings and NA's
+combine[is.na(combine$ind_nuevo)]$ind_nuevo <- 1
+combine[is.na(combine$antiguedad)]$antiguedad <- min(combine$antiguedad, na.rm=TRUE)
+combine[combine$antiguedad < 0]$antiguedad <- 0
+combine[is.na(combine$indrel)]$indrel <- 1
+combine[is.na(combine$ind_actividad_cliente)]$ind_actividad_cliente <- 1
+combine[is.na(combine$indrel_1mes)]$indrel_1mes <- '1'
+
 combine[combine$tiprel_1mes == '']$tiprel_1mes <- 'A'
 combine[combine$indrel_1mes == '']$indrel_1mes <- '1'
 combine[combine$indrel_1mes == 'P']$indrel_1mes <- '5'
 combine$indrel_1mes <- as.integer(combine$indrel_1mes)
 combine[combine$indrel_1mes > 5]$indrel_1mes <- 1
 combine[is.na(combine$indrel_1mes)]$indrel_1mes <- 1
-gc()
-
-# replace empties
+combine[combine$tiprel_1mes == '']$tiprel_1mes <- 'A'
 combine[combine$sexo == '']$sexo <- '_U'
 combine[combine$canal_entrada == '']$canal_entrada <- '_U'
 combine[combine$segmento == '']$segmento <- '_U'
+combine[combine$ind_empleado == '']$ind_empleado <- '_U'
+combine[combine$indresi == '']$indresi <- '_U'
+combine[combine$indext == '']$indext <- '_U'
+combine[combine$indfall == '']$indfall <- 'N'
 gc()
 
 # make dates and factors
@@ -107,6 +128,9 @@ combine$ind_actividad_cliente <- as.factor(combine$ind_actividad_cliente)
 combine$segmento <- as.factor(combine$segmento)
 gc()
 
+# replace NA's for feche_alta here
+combine[is.na(combine$fecha_alta)]$fecha_alta <- median(combine$fecha_alta, na.rm = TRUE)
+
 # split combine data set into train and test again
 train <- combine[combine$fecha_dato != '2016-06-28']
 gc()
@@ -124,6 +148,7 @@ train$next_month_id <- train$month_id + 1
 
 # apply the product status change: each product column will contain 'Maintained', 'Added', 'Removed' values
 products <- grep("ind_+.*ult.*", names(train))
+train[, products] <- lapply(train[, products], function(x) as.integer(round(x)))
 train[, products] <- lapply(train[, products], 
                             function(x) {
                                 return(ave(x, train$ncodpers, FUN = product.status.change))

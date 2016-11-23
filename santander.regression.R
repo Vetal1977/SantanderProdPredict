@@ -65,7 +65,7 @@ prepare.predict.matrix <- function(df) {
                      'antiguedad', 'indrel',
                      'tiprel_1mes', 'sexo',
                      'indfall', 'canal_entrada',
-                     'indext')]
+                     'indext', 'fecha_alta')]
     result$segmento <- as.numeric(result$segmento)
     result$nomprov <- as.numeric(result$nomprov)
     result$ind_empleado <- as.numeric(result$ind_empleado)
@@ -124,10 +124,10 @@ train.june.2015 <- filter(train.june.2015, status == 'Added')
 train.june.2015$product <- as.factor(train.june.2015$product)
 
 # make age groups
-train.june.2015 <- make.age.groups(train.june.2015)
+#train.june.2015 <- make.age.groups(train.june.2015)
 
 # make income groups
-train.june.2015 <- make.income.groups(train.june.2015)
+#train.june.2015 <- make.income.groups(train.june.2015)
 
 # teach models
 
@@ -179,17 +179,17 @@ bst <- xgboost(param = param, data = train.june.2015.bst,
 gc()
 
 # make age groups
-test <- make.age.groups(test)
+#test <- make.age.groups(test)
 
 # make income groups
-test <- make.income.groups(test)
-gc()
+#test <- make.income.groups(test)
+#gc()
 
 # unknown segment _U in test comparing to june 2015
-test[test$segmento %in% c('_U'),]$segmento <- '02 - PARTICULARES'
+#test[test$segmento %in% c('_U'),]$segmento <- '02 - PARTICULARES'
 
 # unknown employee index S in test comparing to june 2015
-test[test$ind_empleado %in% c('S'),]$ind_empleado <- 'N'
+#test[test$ind_empleado %in% c('S'),]$ind_empleado <- 'N'
 
 # unknown products ind_ahor_fin_ult1, ind_aval_fin_ult1 in test comparing to june 2015
 test <- test[, !(names(test) %in% c('ind_ahor_fin_ult1', 'ind_aval_fin_ult1'))]
