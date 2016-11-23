@@ -9,8 +9,15 @@ product.status.change <- function(x) {
     } 
     else {
         diffs <- diff(x) # difference month-by-month
-        diffs <- c(0, diffs)
+        diffs <- c(x[1], diffs)
         label <- rep("Maintained", length(x))
+        label[1] = ifelse(x[1] == 1, "Added", "Maintained")
+        
+        #if (length(x) < 17) {
+        #    label[1] = ifelse(x[1] == 1, "Added", "Maintained")
+        #    diffs[1] = 1
+        #}
+            
         label <- ifelse(diffs == 1, 
                         "Added",
                         ifelse(diffs == -1, 

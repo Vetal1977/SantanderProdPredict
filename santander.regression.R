@@ -27,37 +27,6 @@ load.data <- function(filename) {
     return(as.data.frame(data))
 }
 
-make.age.groups <- function(df) {
-    result <- data.frame(df)
-    
-    result$age_group <- 0
-    result[result$age < 30,]$age_group <- 1
-    result[result$age >= 30 & result$age < 45,]$age_group <- 2
-    result[result$age >= 45 & result$age < 60,]$age_group <- 3
-    result[result$age >= 60 & result$age < 75,]$age_group <- 4
-    result[result$age >= 75,]$age_group <- 5
-    result$age_group <- as.factor(result$age_group)
-    return(result)
-}
-
-make.income.groups <- function(df) {
-    result <- data.frame(df)
-    
-    result$income_group <- 0
-    result[result$renta < 15000,]$income_group <- 1
-    result[result$renta >= 15000 & result$renta < 25000,]$income_group <- 2
-    result[result$renta >= 25000 & result$renta < 40000,]$income_group <- 3
-    result[result$renta >= 40000 & result$renta < 60000,]$income_group <- 4
-    result[result$renta >= 60000 & result$renta < 80000,]$income_group <- 5
-    result[result$renta >= 80000 & result$renta < 110000,]$income_group <- 6
-    result[result$renta >= 110000 & result$renta < 130000,]$income_group <- 7
-    result[result$renta >= 130000 & result$renta < 160000,]$income_group <- 8
-    result[result$renta >= 160000 & result$renta < 200000,]$income_group <- 9
-    result[result$renta >= 200000,]$income_group <- 10
-    result$income_group <- as.factor(result$income_group)
-    return(result)
-}
-
 prepare.predict.matrix <- function(df) {
     result <- df[, c('age', 'ind_nuevo', 'segmento',
                      'ind_empleado', 'ind_actividad_cliente',
@@ -74,6 +43,7 @@ prepare.predict.matrix <- function(df) {
     result$indfall <- as.numeric(result$indfall)
     result$canal_entrada <- as.numeric(result$canal_entrada)
     result$indext <- as.numeric(result$indext)
+    result$fecha_alta <- as.numeric(factor(result$fecha_alta))
     result <- as.matrix(result)
     mode(result) <- "numeric"
     return(result)
@@ -96,38 +66,47 @@ test <- test[order(test$ncodpers), ]
 test <- merge(test, train_clean_last_month, by = c('ncodpers'))
 
 # clean up
-rm(train_clean)
 rm(train_clean_last_month)
 rm(products)
 rm(products_ncodpers)
 gc()
 
 # load train data set with 'Maintained', 'Added', 'Dropped' status
-train <- load.data('train_status_change.csv')
-train.june.2015 <- filter(train, fecha_dato == '2015-06-28')
+#train <- load.data('train_status_change.csv')
+train.may.2015 <- filter(train_clean, fecha_dato == '2015-05-28')
+train.june.2015 <- filter(train_clean, fecha_dato == '2015-06-28')
 
 # filter 'Maintained' only
 products <- grep("ind_+.*ult.*", names(train.june.2015))
-interesting <- rowSums(train.june.2015[, products] != 'Maintained')
+
+products_ncodpers <- c(2, products)
+train.may.2015 <- train.may.2015[, products_ncodpers]
+
+interesting <- rowSums(train.june.2015[, products])
 train.june.2015 <- train.june.2015[interesting > 0,]
-rm(interesting)
 
 # 'rotate' the train data set where each row corresponds to the tripple customer ID - product - status
+train.may.2015 <- train.may.2015 %>%
+    gather(key = product, value = status, ind_ahor_fin_ult1:ind_recibo_ult1)
 train.june.2015 <- train.june.2015 %>%
     gather(key = product, value = status, ind_ahor_fin_ult1:ind_recibo_ult1)
 
 # remove unnecessary columns and all 'Maintained' products
-train.june.2015 <- train.june.2015[, !(names(train.june.2015) %in% c('month_id', 'next_month_id'))]
-train.june.2015 <- filter(train.june.2015, status == 'Added')
+#train.june.2015 <- train.june.2015[, !(names(train.june.2015) %in% c('month_id', 'next_month_id'))]
+train.june.2015 <- filter(train.june.2015, status > 0)
+train.june.2015 <- merge(
+    train.june.2015, 
+    train.may.2015, 
+    by = c('ncodpers', 'product'),
+    all.x = TRUE)
+train.june.2015[is.na(train.june.2015$status.y),]$status.y <- 0
+train.june.2015$added <- train.june.2015$status.x - train.june.2015$status.y
+train.june.2015 <- filter(train.june.2015, added > 0)
+train.june.2015$status.x <- NULL
+train.june.2015$status.y <- NULL
 
 # convert product and status to factor
 train.june.2015$product <- as.factor(train.june.2015$product)
-
-# make age groups
-#train.june.2015 <- make.age.groups(train.june.2015)
-
-# make income groups
-#train.june.2015 <- make.income.groups(train.june.2015)
 
 # teach models
 
@@ -139,27 +118,8 @@ product.lab <- as.matrix(as.integer(train.june.2015$product) - 1)
 # prepare train matrix
 train.june.2015.bst <- prepare.predict.matrix(train.june.2015)
 
-# parameters
-#param <- list("objective" = "multi:softprob",    # multiclass classification 
-#              "num_class" = num.class,    # number of classes 
-#              "eval_metric" = "merror",    # evaluation metric 
-#              "nthread" = 8,   # number of threads to be used 
-#              "max_depth" = 8,    # maximum depth of tree 
-#              "eta" = 0.01,    # step size shrinkage 
-#              "gamma" = 0,    # minimum loss reduction 
-#              "subsample" = 1,    # part of data instances to grow tree 
-#              "colsample_bytree" = 1,  # subsample ratio of columns when constructing each tree 
-#              "min_child_weight" = 1  # minimum sum of instance weight needed in a child 
-#)
-
 # set random seed, for reproducibility
 set.seed(1234)
-
-# cross-validation
-#bst.cv <- xgb.cv(param = param, data = train.june.2015.bst, 
-#                 label = product.lab, nfold = 4, nrounds = 50, 
-#                 prediction = TRUE)
-#min.merror.idx = which.min(bst.cv$dt[, test.merror.mean])
 
 # train the model
 param <- list("objective" = "multi:softprob",    # multiclass classification 
@@ -177,19 +137,6 @@ param <- list("objective" = "multi:softprob",    # multiclass classification
 bst <- xgboost(param = param, data = train.june.2015.bst, 
                label = product.lab, nrounds = 50)
 gc()
-
-# make age groups
-#test <- make.age.groups(test)
-
-# make income groups
-#test <- make.income.groups(test)
-#gc()
-
-# unknown segment _U in test comparing to june 2015
-#test[test$segmento %in% c('_U'),]$segmento <- '02 - PARTICULARES'
-
-# unknown employee index S in test comparing to june 2015
-#test[test$ind_empleado %in% c('S'),]$ind_empleado <- 'N'
 
 # unknown products ind_ahor_fin_ult1, ind_aval_fin_ult1 in test comparing to june 2015
 test <- test[, !(names(test) %in% c('ind_ahor_fin_ult1', 'ind_aval_fin_ult1'))]
@@ -238,4 +185,4 @@ result_write <- result %>%
 result_write <- as.data.table(result_write)
 
 # save to csv
-write.csv(result_write, 'result27.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result28.csv', quote = FALSE, row.names = FALSE)
