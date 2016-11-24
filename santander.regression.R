@@ -34,7 +34,8 @@ prepare.predict.matrix <- function(df) {
                      'antiguedad', 'indrel',
                      'tiprel_1mes', 'sexo',
                      'indfall', 'canal_entrada',
-                     'indext', 'fecha_alta')]
+                     'indext', 'indrel_1mes',
+                     'indresi', 'pais_residencia')]
     result$segmento <- as.numeric(result$segmento)
     result$nomprov <- as.numeric(result$nomprov)
     result$ind_empleado <- as.numeric(result$ind_empleado)
@@ -43,7 +44,10 @@ prepare.predict.matrix <- function(df) {
     result$indfall <- as.numeric(result$indfall)
     result$canal_entrada <- as.numeric(result$canal_entrada)
     result$indext <- as.numeric(result$indext)
-    result$fecha_alta <- as.numeric(factor(result$fecha_alta))
+    result$indrel_1mes <- as.numeric(result$indrel_1mes)
+    result$indresi <- as.numeric(result$indresi)
+    result$pais_residencia <- as.numeric(result$pais_residencia)
+    #result$fecha_alta <- as.numeric(factor(result$fecha_alta))
     result <- as.matrix(result)
     mode(result) <- "numeric"
     return(result)
@@ -99,7 +103,8 @@ train.june.2015 <- merge(
     train.may.2015, 
     by = c('ncodpers', 'product'),
     all.x = TRUE)
-train.june.2015[is.na(train.june.2015$status.y),]$status.y <- 0
+#train.june.2015[is.na(train.june.2015$status.y),]$status.y <- 0
+train.june.2015 <- train.june.2015[!is.na(train.june.2015$status.y),]
 train.june.2015$added <- train.june.2015$status.x - train.june.2015$status.y
 train.june.2015 <- filter(train.june.2015, added > 0)
 train.june.2015$status.x <- NULL
@@ -164,17 +169,17 @@ test[, products] <- NULL
 test <- cbind(test, pred)
 
 # 'rotate' test data
-test <- test %>%
+test.rotated <- test %>%
     gather(key = product, value = prob, ind_cco_fin_ult1:ind_viv_fin_ult1)
 
 # remove products with probability <= 0
-test <- test[test$prob > 0,]
+test.rotated <- test.rotated[test.rotated$prob > 0,]
 
 # sort by ncodpers and probability
-test <- test[order(test$ncodpers, -test$prob),]
+test.rotated <- test.rotated[order(test.rotated$ncodpers, -test.rotated$prob),]
 
 # select 7 most probable products for customers
-test_dt <- data.table(test, key = c('ncodpers'))
+test_dt <- data.table(test.rotated, key = c('ncodpers'))
 result <- test_dt[, .SD[1:7], ncodpers]
 gc()
 

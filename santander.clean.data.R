@@ -9,15 +9,13 @@ product.status.change <- function(x) {
     } 
     else {
         diffs <- diff(x) # difference month-by-month
-        diffs <- c(x[1], diffs)
+        diffs <- c(0, diffs)
         label <- rep("Maintained", length(x))
-        label[1] = ifelse(x[1] == 1, "Added", "Maintained")
+
+        if (length(x) < 17) {
+            diffs[1] = ifelse(x[1] == 1, 1, 0)
+        }
         
-        #if (length(x) < 17) {
-        #    label[1] = ifelse(x[1] == 1, "Added", "Maintained")
-        #    diffs[1] = 1
-        #}
-            
         label <- ifelse(diffs == 1, 
                         "Added",
                         ifelse(diffs == -1, 
@@ -30,10 +28,6 @@ product.status.change <- function(x) {
 # read the train data from the file
 train <- fread('train_ver2.csv', sep = ',', na.strings = 'NA', 
                stringsAsFactors = FALSE)
-
-# seems, we have 27734 useless rows with age, ind_nuevo, antiguedad and some other set to NA
-# while other features set to ''. just remove them
-#train <- train[!is.na(train$age)]
 
 # we have NA's for ind_nomina_ult1 & ind_nom_pens_ult1. set them to 0
 train[is.na(train$ind_nomina_ult1)]$ind_nomina_ult1 <- 0
