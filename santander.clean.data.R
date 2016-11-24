@@ -9,13 +9,14 @@ product.status.change <- function(x) {
     } 
     else {
         diffs <- diff(x) # difference month-by-month
-        diffs <- c(0, diffs)
+        if (length(x) < 17) {
+            diffs <- c(x[1], diffs)
+        }
+        else {
+            diffs <- c(0, diffs)
+        }
         label <- rep("Maintained", length(x))
 
-        if (length(x) < 17) {
-            diffs[1] = ifelse(x[1] == 1, 1, 0)
-        }
-        
         label <- ifelse(diffs == 1, 
                         "Added",
                         ifelse(diffs == -1, 
@@ -56,64 +57,58 @@ combine$nomprov[combine$nomprov == ''] <- '_U'
 combine[combine$pais_residencia == '']$pais_residencia <- '_U'
 gc()
 
-# at the first step we calculate medians separately for Spain (separted for each province) and foreigners
-medianSpain <- median(combine[combine$pais_residencia == 'ES']$renta, na.rm = TRUE)
-medianIncomeForeign <- median(combine[combine$pais_residencia != 'ES']$renta, na.rm = TRUE)
+# calculate incomes for missing values
+new.incomes <- combine %>%
+    select(nomprov) %>%
+    merge(combine %>%
+              group_by(nomprov) %>%
+              summarise(med.income = median(renta, na.rm=TRUE)),
+          by="nomprov") %>%
+    select(nomprov, med.income) %>%
+    arrange(nomprov)
 
-combine[is.na(combine$renta) & combine$pais_residencia == '_U']$renta <- medianSpain
-combine[is.na(combine$renta) & combine$pais_residencia != 'ES']$renta <- medianIncomeForeign
+combine <- arrange(combine, nomprov)
+combine$renta[is.na(combine$renta)] <- new.incomes$med.income[is.na(combine$renta)]
+rm(new.incomes)
 
-incomesForSpain <- combine[!is.na(combine$renta) & combine$pais_residencia == 'ES', 
-                           by = nomprov, 
-                           lapply(.SD, median),
-                           .SDcols = c('renta')]
-tmp <- merge(combine[is.na(combine$renta) & combine$pais_residencia == 'ES'], 
-             incomesForSpain, 
-             all.x = TRUE,
-             by = 'nomprov')
-tmp$renta <- tmp$renta.y
-tmp[, c('renta.x', 'renta.y') := NULL]
-combine <- combine[!is.na(combine$renta)]
-combine <- rbind(combine, tmp)
-combine[is.na(combine$renta)]$renta <- medianSpain  # ES as country + 0 as province code
-rm(tmp)
+combine$renta[is.na(combine$renta)] <- median(combine$renta, na.rm = TRUE)
+combine <- arrange(combine, fecha_dato)
 gc()
 
 # check for empty strings
-char.cols <- names(combine)[sapply(combine, is.character)]
-for (name in char.cols){
-    print(sprintf("Unique values for %s:", name))
-    print(unique(combine[[name]]))
-    cat('\n')
-}
+#char.cols <- names(combine)[sapply(combine, is.character)]
+#for (name in char.cols){
+#    print(sprintf("Unique values for %s:", name))
+#    print(unique(combine[[name]]))
+#    cat('\n')
+#}
 
 # replace empty strings and NA's
-combine[is.na(combine$ind_nuevo)]$ind_nuevo <- 1
-combine[is.na(combine$antiguedad)]$antiguedad <- min(combine$antiguedad, na.rm=TRUE)
-combine[combine$antiguedad < 0]$antiguedad <- 0
-combine[is.na(combine$indrel)]$indrel <- 1
-combine[is.na(combine$ind_actividad_cliente)]$ind_actividad_cliente <- 1
-combine[is.na(combine$indrel_1mes)]$indrel_1mes <- '1'
+combine$ind_nuevo[is.na(combine$ind_nuevo)] <- 1
+combine$antiguedad[is.na(combine$antiguedad)] <- min(combine$antiguedad, na.rm=TRUE)
+combine$antiguedad[combine$antiguedad < 0] <- 0
+combine$indrel[is.na(combine$indrel)] <- 1
+combine$ind_actividad_cliente[is.na(combine$ind_actividad_cliente)] <- 1
+combine$indrel_1mes[is.na(combine$indrel_1mes)] <- '1'
 
-combine[combine$tiprel_1mes == '']$tiprel_1mes <- 'A'
-combine[combine$indrel_1mes == '']$indrel_1mes <- '1'
-combine[combine$indrel_1mes == 'P']$indrel_1mes <- '5'
+combine$tiprel_1mes[combine$tiprel_1mes == ''] <- 'A'
+combine$indrel_1mes[combine$indrel_1mes == ''] <- '1'
+combine$indrel_1mes[combine$indrel_1mes == 'P'] <- '5'
 combine$indrel_1mes <- as.integer(combine$indrel_1mes)
-combine[combine$indrel_1mes > 5]$indrel_1mes <- 1
-combine[is.na(combine$indrel_1mes)]$indrel_1mes <- 1
-combine[combine$tiprel_1mes == '']$tiprel_1mes <- 'A'
-combine[combine$sexo == '']$sexo <- '_U'
-combine[combine$canal_entrada == '']$canal_entrada <- '_U'
-combine[combine$segmento == '']$segmento <- '_U'
-combine[combine$ind_empleado == '']$ind_empleado <- '_U'
-combine[combine$indresi == '']$indresi <- '_U'
-combine[combine$indext == '']$indext <- '_U'
-combine[combine$indfall == '']$indfall <- 'N'
+combine$indrel_1mes[combine$indrel_1mes > 5] <- 1
+combine$indrel_1mes[is.na(combine$indrel_1mes)] <- 1
+combine$tiprel_1mes[combine$tiprel_1mes == ''] <- 'A'
+combine$sexo[combine$sexo == ''] <- '_U'
+combine$canal_entrada[combine$canal_entrada == ''] <- '_U'
+combine$segmento[combine$segmento == ''] <- '_U'
+combine$ind_empleado[combine$ind_empleado == ''] <- '_U'
+combine$indresi[combine$indresi == ''] <- '_U'
+combine$indext[combine$indext == ''] <- '_U'
+combine$indfall[combine$indfall == ''] <- 'N'
 gc()
 
 # make dates and factors
 combine$fecha_dato <- as.Date(combine$fecha_dato)
-combine$fecha_alta <- as.Date(combine$fecha_alta)
 combine$ind_empleado <- as.factor(combine$ind_empleado)
 combine$pais_residencia <- as.factor(combine$pais_residencia)
 combine$sexo <- as.factor(combine$sexo)
@@ -130,12 +125,14 @@ combine$segmento <- as.factor(combine$segmento)
 gc()
 
 # replace NA's for feche_alta here
-combine[is.na(combine$fecha_alta)]$fecha_alta <- median(combine$fecha_alta, na.rm = TRUE)
+median.fecha.alta <- median(as.Date(combine$fecha_alta[combine$fecha_alta != '']))
+combine$fecha_alta[combine$fecha_alta == ''] <- as.character(median.fecha.alta)
+combine$fecha_alta <- as.Date(combine$fecha_alta)
 
 # split combine data set into train and test again
-train <- combine[combine$fecha_dato != '2016-06-28']
+train <- combine[combine$fecha_dato != '2016-06-28',]
 gc()
-test <- combine[combine$fecha_dato == '2016-06-28']
+test <- combine[combine$fecha_dato == '2016-06-28',]
 rm(combine)
 gc()
 

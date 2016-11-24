@@ -34,8 +34,7 @@ prepare.predict.matrix <- function(df) {
                      'antiguedad', 'indrel',
                      'tiprel_1mes', 'sexo',
                      'indfall', 'canal_entrada',
-                     'indext', 'indrel_1mes',
-                     'indresi', 'pais_residencia')]
+                     'indext')]
     result$segmento <- as.numeric(result$segmento)
     result$nomprov <- as.numeric(result$nomprov)
     result$ind_empleado <- as.numeric(result$ind_empleado)
@@ -44,9 +43,9 @@ prepare.predict.matrix <- function(df) {
     result$indfall <- as.numeric(result$indfall)
     result$canal_entrada <- as.numeric(result$canal_entrada)
     result$indext <- as.numeric(result$indext)
-    result$indrel_1mes <- as.numeric(result$indrel_1mes)
-    result$indresi <- as.numeric(result$indresi)
-    result$pais_residencia <- as.numeric(result$pais_residencia)
+    #result$indrel_1mes <- as.numeric(result$indrel_1mes)
+    #result$indresi <- as.numeric(result$indresi)
+    #result$pais_residencia <- as.numeric(result$pais_residencia)
     #result$fecha_alta <- as.numeric(factor(result$fecha_alta))
     result <- as.matrix(result)
     mode(result) <- "numeric"
@@ -76,7 +75,7 @@ rm(products_ncodpers)
 gc()
 
 # load train data set with 'Maintained', 'Added', 'Dropped' status
-#train <- load.data('train_status_change.csv')
+train <- load.data('train_status_change.csv')
 train.may.2015 <- filter(train_clean, fecha_dato == '2015-05-28')
 train.june.2015 <- filter(train_clean, fecha_dato == '2015-06-28')
 
@@ -103,8 +102,7 @@ train.june.2015 <- merge(
     train.may.2015, 
     by = c('ncodpers', 'product'),
     all.x = TRUE)
-#train.june.2015[is.na(train.june.2015$status.y),]$status.y <- 0
-train.june.2015 <- train.june.2015[!is.na(train.june.2015$status.y),]
+train.june.2015[is.na(train.june.2015$status.y),]$status.y <- 0
 train.june.2015$added <- train.june.2015$status.x - train.june.2015$status.y
 train.june.2015 <- filter(train.june.2015, added > 0)
 train.june.2015$status.x <- NULL
@@ -134,8 +132,8 @@ param <- list("objective" = "multi:softprob",    # multiclass classification
               "max_depth" = 8,    # maximum depth of tree 
               "eta" = 0.05,    # step size shrinkage 
               "gamma" = 0,    # minimum loss reduction 
-              "subsample" = 1,    # part of data instances to grow tree 
-              "colsample_bytree" = 1,  # subsample ratio of columns when constructing each tree 
+              "subsample" = 0.7,    # part of data instances to grow tree 
+              "colsample_bytree" = 0.7,  # subsample ratio of columns when constructing each tree 
               "min_child_weight" = 1  # minimum sum of instance weight needed in a child 
 )
 
