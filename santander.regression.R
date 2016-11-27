@@ -43,60 +43,48 @@ prepare.predict.matrix <- function(df) {
     result$indfall <- as.numeric(result$indfall)
     result$canal_entrada <- as.numeric(result$canal_entrada)
     result$indext <- as.numeric(result$indext)
-    #result$indrel_1mes <- as.numeric(result$indrel_1mes)
-    #result$indresi <- as.numeric(result$indresi)
-    #result$pais_residencia <- as.numeric(result$pais_residencia)
-    #result$fecha_alta <- as.numeric(factor(result$fecha_alta))
+    result$ind_nuevo <- as.numeric(result$ind_nuevo)
+    result$ind_actividad_cliente <- as.numeric(result$ind_actividad_cliente)
+    result$indrel <- as.numeric(factor(result$indrel))
     result <- as.matrix(result)
     mode(result) <- "numeric"
     return(result)
 }
 
-# load train data from csv
-train_clean <- load.data('train_clean.csv')
-train_clean_last_month <- train_clean[train_clean$fecha_dato == '2016-05-28',]
-products <- grep("ind_+.*ult.*", names(train_clean))
+# load May 2016 data from csv
+train.may.2016 <- load.data('train_may_2016.csv')
+products <- grep("ind_+.*ult.*", names(train.may.2016))
 products_ncodpers <- c(2, products)
-train_clean_last_month <- train_clean_last_month[, products_ncodpers]
+train.may.2016 <- train.may.2016[, products_ncodpers]
 
 #load test data from csv
 test <- load.data('test_clean.csv')
-products <- grep("ind_+.*ult.*", names(test))
-test <- test[, -products]
-test <- test[order(test$ncodpers), ]
 
 # merge product columns from train to test
-test <- merge(test, train_clean_last_month, by = c('ncodpers'))
-
-# clean up
-rm(train_clean_last_month)
-rm(products)
-rm(products_ncodpers)
+test <- merge(test, train.may.2016, by = c('ncodpers'), all.x = TRUE)
 gc()
 
-# load train data set with 'Maintained', 'Added', 'Dropped' status
-train <- load.data('train_status_change.csv')
-train.may.2015 <- filter(train_clean, fecha_dato == '2015-05-28')
-train.june.2015 <- filter(train_clean, fecha_dato == '2015-06-28')
+# load June 2015 data and filter out persons that do not have any products
+train.june.2015 <- load.data('train_june_2015.csv')
 
-# filter 'Maintained' only
 products <- grep("ind_+.*ult.*", names(train.june.2015))
-
-products_ncodpers <- c(2, products)
-train.may.2015 <- train.may.2015[, products_ncodpers]
-
 interesting <- rowSums(train.june.2015[, products])
 train.june.2015 <- train.june.2015[interesting > 0,]
 
+# load May 2015 data and let only products and person codes
+train.may.2015 <- load.data('train_may_2015.csv')
+products_ncodpers <- c(2, products)
+train.may.2015 <- train.may.2015[, products_ncodpers]
+
 # 'rotate' the train data set where each row corresponds to the tripple customer ID - product - status
 train.may.2015 <- train.may.2015 %>%
-    gather(key = product, value = status, ind_ahor_fin_ult1:ind_recibo_ult1)
+    gather(key = product, value = status, ind_cco_fin_ult1:ind_recibo_ult1)
 train.june.2015 <- train.june.2015 %>%
-    gather(key = product, value = status, ind_ahor_fin_ult1:ind_recibo_ult1)
+    gather(key = product, value = status, ind_cco_fin_ult1:ind_recibo_ult1)
 
-# remove unnecessary columns and all 'Maintained' products
-#train.june.2015 <- train.june.2015[, !(names(train.june.2015) %in% c('month_id', 'next_month_id'))]
+# remove unnecessary rows with prodducts that was not bought
 train.june.2015 <- filter(train.june.2015, status > 0)
+
 train.june.2015 <- merge(
     train.june.2015, 
     train.may.2015, 
@@ -138,11 +126,8 @@ param <- list("objective" = "multi:softprob",    # multiclass classification
 )
 
 bst <- xgboost(param = param, data = train.june.2015.bst, 
-               label = product.lab, nrounds = 50)
+               label = product.lab, nrounds = 50, verbose = FALSE)
 gc()
-
-# unknown products ind_ahor_fin_ult1, ind_aval_fin_ult1 in test comparing to june 2015
-test <- test[, !(names(test) %in% c('ind_ahor_fin_ult1', 'ind_aval_fin_ult1'))]
 
 # prediction
 
@@ -188,4 +173,4 @@ result_write <- result %>%
 result_write <- as.data.table(result_write)
 
 # save to csv
-write.csv(result_write, 'result28.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result30.csv', quote = FALSE, row.names = FALSE)
