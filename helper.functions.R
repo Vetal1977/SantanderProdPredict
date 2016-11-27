@@ -2,23 +2,7 @@ library(data.table)
 library(dplyr)
 library(tidyr)
 library(reshape2)
-
-product.status.change <- function(x) {
-    if (length(x) == 1) {
-        label = ifelse(x == 1, "Added", "Maintained")
-    } 
-    else {
-        diffs <- diff(x) # difference month-by-month
-        diffs <- c(0, diffs)
-        label <- rep("Maintained", length(x))
-        label <- ifelse(diffs == 1, 
-                        "Added",
-                        ifelse(diffs == -1, 
-                               "Dropped", 
-                               "Maintained"))
-    }
-    return(label)
-}
+library(xgboost)
 
 clean.data.in.df <- function(df) {
     # limit ages
@@ -31,7 +15,7 @@ clean.data.in.df <- function(df) {
     # we have code and name columns for province - remove duplicated information, province code
     df <- df[, !(names(df) %in% 
                      c('conyuemp', 'tipodom', 'ult_fec_cli_1t', 'cod_prov'))]
-        
+    
     # and replace empty province code with _U
     df$nomprov[df$nomprov == ''] <- '_U'
     df$pais_residencia[df$pais_residencia == ''] <- '_U'
@@ -102,6 +86,7 @@ clean.data.in.df <- function(df) {
     df$nomprov <- as.factor(df$nomprov)
     df$ind_actividad_cliente <- as.factor(df$ind_actividad_cliente)
     df$segmento <- as.factor(df$segmento)
+    df$indfall <- as.factor(df$indfall)
     gc()
     
     # replace NA's for feche_alta here
@@ -112,38 +97,26 @@ clean.data.in.df <- function(df) {
     return(df)
 }
 
-# read the train data from the file
-train <- as.data.frame(
-    fread('train_ver2.csv', sep = ',', na.strings = 'NA', 
-               stringsAsFactors = FALSE)
-)
-
-# we have NA's for ind_nomina_ult1 & ind_nom_pens_ult1. set them to 0
-train$ind_nomina_ult1[is.na(train$ind_nomina_ult1)] <- 0
-train$ind_nom_pens_ult1[is.na(train$ind_nom_pens_ult1)] <- 0
-
-# unknown products ind_ahor_fin_ult1, ind_aval_fin_ult1 in test comparing to june 2015
-train <- train[, !(names(train) %in% c('ind_ahor_fin_ult1', 'ind_aval_fin_ult1'))]
-
-# clean and save only May 2015, June 2015, May 2016
-train.may.2015 <- train[train$fecha_dato == '2015-05-28',]
-train.june.2015 <- train[train$fecha_dato == '2015-06-28',]
-train.may.2016 <- train[train$fecha_dato == '2016-05-28',]
-
-train.may.2015 <- clean.data.in.df(train.may.2015)
-train.june.2015 <- clean.data.in.df(train.june.2015)
-train.may.2016 <- clean.data.in.df(train.may.2016)
-
-write.table(train.may.2015, 'train_may_2015.csv', quote = FALSE, row.names = FALSE, sep = ';')
-write.table(train.june.2015, 'train_june_2015.csv', quote = FALSE, row.names = FALSE, sep = ';')
-write.table(train.may.2016, 'train_may_2016.csv', quote = FALSE, row.names = FALSE, sep = ';')
-
-# read test data from the file and combine them with train data for cleaning
-test <- as.data.frame(
-    fread('test_ver2.csv', sep = ',', na.strings = 'NA', 
-              stringsAsFactors = FALSE)
-)
-
-# clean and save
-test <- clean.data.in.df(test)
-write.table(test, 'test_clean.csv', quote = FALSE, row.names = FALSE, sep = ';')
+prepare.predict.matrix <- function(df) {
+    result <- df[, c('age', 'ind_nuevo', 'segmento',
+                     'ind_empleado', 'ind_actividad_cliente',
+                     'nomprov', 'renta',
+                     'antiguedad', 'indrel',
+                     'tiprel_1mes', 'sexo',
+                     'indfall', 'canal_entrada',
+                     'indext')]
+    result$segmento <- as.numeric(result$segmento)
+    result$nomprov <- as.numeric(result$nomprov)
+    result$ind_empleado <- as.numeric(result$ind_empleado)
+    result$tiprel_1mes <- as.numeric(result$tiprel_1mes)
+    result$sexo <- as.numeric(result$sexo)
+    result$indfall <- as.numeric(result$indfall)
+    result$canal_entrada <- as.numeric(result$canal_entrada)
+    result$indext <- as.numeric(result$indext)
+    result$ind_nuevo <- as.numeric(result$ind_nuevo)
+    result$ind_actividad_cliente <- as.numeric(result$ind_actividad_cliente)
+    result$indrel <- as.numeric(factor(result$indrel))
+    result <- as.matrix(result)
+    mode(result) <- "numeric"
+    return(result)
+}
