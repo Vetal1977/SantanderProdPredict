@@ -103,7 +103,7 @@ prepare.train.matrix <- function(df) {
                                              ind_empleado + ind_actividad_cliente +
                                              nomprov + renta + antiguedad + indrel +
                                              tiprel_1mes + sexo + indfall + canal_entrada +
-                                             indext - 1, data = df)
+                                             indext + indrel_1mes - 1, data = df)
     return(predict.matrix)
 }
 
@@ -112,6 +112,6 @@ prepare.predict.matrix <- function(df) {
                                               ind_empleado + ind_actividad_cliente +
                                               nomprov + renta + antiguedad + indrel +
                                               tiprel_1mes + sexo + indfall + canal_entrada +
-                                              indext - 1, data = df)
+                                              indext + indrel_1mes - 1, data = df)
     return(predict.matrix)
 }

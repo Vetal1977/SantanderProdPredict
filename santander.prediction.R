@@ -52,12 +52,12 @@ param <- list("objective" = "multi:softprob",    # multiclass classification
               "min_child_weight" = 1  # minimum sum of instance weight needed in a child 
 )
 
-bst <- xgboost(param = param, data = sparse_matrix, 
+bst <- xgboost(param = param, data = train.june.2015.bst, 
                label = product.lab, nrounds = 50, verbose = FALSE)
 gc()
 
-importance <- xgb.importance(sparse_matrix@Dimnames[[2]], model = bst)
-xgb.plot.importance(importance_matrix = importance[1:10])
+importance <- xgb.importance(train.june.2015.bst@Dimnames[[2]], model = bst)
+xgb.plot.importance(importance_matrix = head(importance, 20))
 
 
 # prediction
@@ -70,4 +70,4 @@ result <- get.result.df(test)
 result_write <- prepare.result.to.write(result)
 
 # save to csv
-write.csv(result_write, 'result34.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result38.csv', quote = FALSE, row.names = FALSE)
