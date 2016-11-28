@@ -1,4 +1,5 @@
 source('data.sets.functions.R')
+library(Matrix)
 
 # read the train data from the file
 train <- as.data.frame(
@@ -34,7 +35,7 @@ num.class <- length(levels(train.june.2015$product))
 product.lab <- as.matrix(as.integer(train.june.2015$product) - 1)
 
 # prepare train matrix
-train.june.2015.bst <- prepare.predict.matrix(train.june.2015)
+train.june.2015.bst <- prepare.train.matrix(train.june.2015)
 
 # set random seed, for reproducibility
 set.seed(1234)
@@ -52,11 +53,13 @@ param <- list("objective" = "multi:softprob",    # multiclass classification
               "min_child_weight" = 1  # minimum sum of instance weight needed in a child 
 )
 
-bst <- xgboost(param = param, data = train.june.2015.bst, 
+bst <- xgboost(param = param, data = sparse_matrix, 
                label = product.lab, nrounds = 50, verbose = FALSE)
 gc()
 
-importance <- xgb.importance(feature_names = colnames(train.june.2015.bst), model = bst)
+importance <- xgb.importance(sparse_matrix@Dimnames[[2]], model = bst)
+xgb.plot.importance(importance_matrix = importance[1:10])
+
 
 # prediction
 test <- make.prediction(test, bst, train.june.2015)
@@ -68,4 +71,4 @@ result <- get.result.df(test)
 result_write <- prepare.result.to.write(result)
 
 # save to csv
-write.csv(result_write, 'result33.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result34.csv', quote = FALSE, row.names = FALSE)

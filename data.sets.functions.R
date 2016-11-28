@@ -84,7 +84,7 @@ create.boost.model <- function(train.june.2015) {
     product.lab <- as.matrix(as.integer(train.june.2015$product) - 1)
     
     # prepare train matrix
-    train.june.2015.bst <- prepare.predict.matrix(train.june.2015)
+    train.june.2015.bst <- prepare.train.matrix(train.june.2015)
     
     # set random seed, for reproducibility
     set.seed(1234)

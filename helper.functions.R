@@ -97,26 +97,20 @@ clean.data.in.df <- function(df) {
     return(df)
 }
 
+prepare.train.matrix <- function(df) {
+    predict.matrix <- sparse.model.matrix(product ~ age + ind_nuevo + segmento + 
+                                             ind_empleado + ind_actividad_cliente +
+                                             nomprov + renta + antiguedad + indrel +
+                                             tiprel_1mes + sexo + indfall + canal_entrada +
+                                             indext - 1, data = df)
+    return(predict.matrix)
+}
+
 prepare.predict.matrix <- function(df) {
-    result <- df[, c('age', 'ind_nuevo', 'segmento',
-                     'ind_empleado', 'ind_actividad_cliente',
-                     'nomprov', 'renta',
-                     'antiguedad', 'indrel',
-                     'tiprel_1mes', 'sexo',
-                     'indfall', 'canal_entrada',
-                     'indext')]
-    result$segmento <- as.numeric(result$segmento)
-    result$nomprov <- as.numeric(result$nomprov)
-    result$ind_empleado <- as.numeric(result$ind_empleado)
-    result$tiprel_1mes <- as.numeric(result$tiprel_1mes)
-    result$sexo <- as.numeric(result$sexo)
-    result$indfall <- as.numeric(result$indfall)
-    result$canal_entrada <- as.numeric(result$canal_entrada)
-    result$indext <- as.numeric(result$indext)
-    result$ind_nuevo <- as.numeric(result$ind_nuevo)
-    result$ind_actividad_cliente <- as.numeric(result$ind_actividad_cliente)
-    result$indrel <- as.numeric(factor(result$indrel))
-    result <- as.matrix(result)
-    mode(result) <- "numeric"
-    return(result)
+    predict.matrix <- sparse.model.matrix( ~ age + ind_nuevo + segmento + 
+                                              ind_empleado + ind_actividad_cliente +
+                                              nomprov + renta + antiguedad + indrel +
+                                              tiprel_1mes + sexo + indfall + canal_entrada +
+                                              indext - 1, data = df)
+    return(predict.matrix)
 }
