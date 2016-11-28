@@ -1,5 +1,4 @@
 source('data.sets.functions.R')
-library(Matrix)
 
 # read the train data from the file
 train <- as.data.frame(

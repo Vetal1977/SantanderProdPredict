@@ -3,6 +3,7 @@ library(dplyr)
 library(tidyr)
 library(reshape2)
 library(xgboost)
+library(Matrix)
 
 clean.data.in.df <- function(df) {
     # limit ages
