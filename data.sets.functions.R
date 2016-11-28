@@ -1,4 +1,5 @@
 source('helper.functions.R')
+library(zoo)
 
 clean.and.split.train.df <- function(train) {
     # we have NA's for ind_nomina_ult1 & ind_nom_pens_ult1. set them to 0
@@ -36,15 +37,19 @@ clean.test.df <- function(test, train.may.2016) {
 }
 
 prepare.train.df.for.boost <- function(train.may.2015, train.june.2015) {
-    # products and ncodpers+products columns
-    products <- grep("ind_+.*ult.*", names(train.may.2015))
-    products_ncodpers <- c(2, products)
+    # create new column for fecha_alta in months
+    train.june.2015$fecha_alta_month <- 
+        1 + 12 * (as.yearmon(train.june.2015$fecha_dato) - 
+                      as.yearmon(train.june.2015$fecha_alta))
     
     # filter June 2016 data - remove all rows by customers, where no products bought
+    products <- grep("ind_+.*ult.*", names(train.june.2015))
     interesting <- rowSums(train.june.2015[, products])
     train.june.2015 <- train.june.2015[interesting > 0,]
     
     # prepare May 2015 data - we need only products and ncodpers to define products that were bought in June 2015
+    products <- grep("ind_+.*ult.*", names(train.may.2015))
+    products_ncodpers <- c(2, products)
     train.may.2015 <- train.may.2015[, products_ncodpers]
     
     # 'rotate' the May 2015 and June 2015 data set where each row corresponds to the tripple customer ID - product - status
@@ -53,7 +58,7 @@ prepare.train.df.for.boost <- function(train.may.2015, train.june.2015) {
     train.june.2015 <- train.june.2015 %>%
         gather(key = product, value = status, ind_cco_fin_ult1:ind_recibo_ult1)
     
-    # remove unnecessary rows with prodducts that was not bought
+    # remove unnecessary rows with products that was not bought
     train.june.2015 <- filter(train.june.2015, status > 0)
     
     # merge May 2015 and June 2016 data and, checking the bought/not-bought product status,
@@ -112,6 +117,9 @@ create.boost.model <- function(train.june.2015) {
 make.prediction <- function(test, 
                             bst, 
                             train.june.2015) {
+    # create new column for fecha_alta in months
+    test$fecha_alta_month <- 1 + 12 * (as.yearmon(test$fecha_dato) - as.yearmon(test$fecha_alta))
+    
     # preparation
     to_predict <- prepare.predict.matrix(test)
     
