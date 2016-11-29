@@ -42,6 +42,21 @@ set.seed(1234)
 # train the model
 param <- list("objective" = "multi:softprob",    # multiclass classification 
               "num_class" = num.class,    # number of classes 
+              "eval_metric" = "merror",    # evaluation metric 
+              "nthread" = 8,   # number of threads to be used 
+              "max_depth" = 8,    # maximum depth of tree 
+              "eta" = 0.05,    # step size shrinkage 
+              "gamma" = 0,    # minimum loss reduction 
+              "subsample" = 0.7,    # part of data instances to grow tree 
+              "colsample_bytree" = 0.7,  # subsample ratio of columns when constructing each tree 
+              "min_child_weight" = 1  # minimum sum of instance weight needed in a child 
+)
+bst.cv <- xgb.cv(params = param, data = train.june.2015.bst, 
+       label = product.lab, nrounds = 50, nfold = 4,
+       prediction = TRUE)
+
+param <- list("objective" = "multi:softprob",    # multiclass classification 
+              "num_class" = num.class,    # number of classes 
               "eval_metric" = "mlogloss",    # evaluation metric 
               "nthread" = 8,   # number of threads to be used 
               "max_depth" = 8,    # maximum depth of tree 
@@ -51,7 +66,6 @@ param <- list("objective" = "multi:softprob",    # multiclass classification
               "colsample_bytree" = 0.7,  # subsample ratio of columns when constructing each tree 
               "min_child_weight" = 1  # minimum sum of instance weight needed in a child 
 )
-
 bst <- xgboost(param = param, data = train.june.2015.bst, 
                label = product.lab, nrounds = 50, verbose = FALSE)
 gc()
