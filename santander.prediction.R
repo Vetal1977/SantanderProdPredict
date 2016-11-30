@@ -42,17 +42,17 @@ set.seed(1234)
 # train the model
 param <- list("objective" = "multi:softprob",    # multiclass classification 
               "num_class" = num.class,    # number of classes 
-              "eval_metric" = "merror",    # evaluation metric 
+              "eval_metric" = "mlogloss",    # evaluation metric 
               "nthread" = 8,   # number of threads to be used 
               "max_depth" = 8,    # maximum depth of tree 
-              "eta" = 0.05,    # step size shrinkage 
+              "eta" = 0.1,    # step size shrinkage 
               "gamma" = 0,    # minimum loss reduction 
               "subsample" = 0.7,    # part of data instances to grow tree 
               "colsample_bytree" = 0.7,  # subsample ratio of columns when constructing each tree 
               "min_child_weight" = 1  # minimum sum of instance weight needed in a child 
 )
 bst.cv <- xgb.cv(params = param, data = train.june.2015.bst, 
-       label = product.lab, nrounds = 50, nfold = 4,
+       label = product.lab, nrounds = 100, nfold = 4,
        prediction = TRUE)
 
 param <- list("objective" = "multi:softprob",    # multiclass classification 
@@ -60,14 +60,14 @@ param <- list("objective" = "multi:softprob",    # multiclass classification
               "eval_metric" = "mlogloss",    # evaluation metric 
               "nthread" = 8,   # number of threads to be used 
               "max_depth" = 8,    # maximum depth of tree 
-              "eta" = 0.05,    # step size shrinkage 
+              "eta" = 0.1,    # step size shrinkage 
               "gamma" = 0,    # minimum loss reduction 
               "subsample" = 0.7,    # part of data instances to grow tree 
               "colsample_bytree" = 0.7,  # subsample ratio of columns when constructing each tree 
               "min_child_weight" = 1  # minimum sum of instance weight needed in a child 
 )
 bst <- xgboost(param = param, data = train.june.2015.bst, 
-               label = product.lab, nrounds = 50, verbose = FALSE)
+               label = product.lab, nrounds = 80, verbose = FALSE)
 gc()
 
 importance <- xgb.importance(train.june.2015.bst@Dimnames[[2]], model = bst)
@@ -84,4 +84,4 @@ result <- get.result.df(test)
 result_write <- prepare.result.to.write(result)
 
 # save to csv
-write.csv(result_write, 'result39.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result40.csv', quote = FALSE, row.names = FALSE)
