@@ -45,33 +45,24 @@ param <- list("objective" = "multi:softprob",    # multiclass classification
               "eval_metric" = "mlogloss",    # evaluation metric 
               "nthread" = 8,   # number of threads to be used 
               "max_depth" = 8,    # maximum depth of tree 
-              "eta" = 0.1,    # step size shrinkage 
+              "eta" = 0.05,    # step size shrinkage 
               "gamma" = 0,    # minimum loss reduction 
               "subsample" = 0.7,    # part of data instances to grow tree 
               "colsample_bytree" = 0.7,  # subsample ratio of columns when constructing each tree 
               "min_child_weight" = 1  # minimum sum of instance weight needed in a child 
 )
 bst.cv <- xgb.cv(params = param, data = train.june.2015.bst, 
-       label = product.lab, nrounds = 100, nfold = 4,
-       prediction = TRUE)
+       label = product.lab, nrounds = 300, nfold = 4,
+       prediction = TRUE, verbose = FALSE)
 
-param <- list("objective" = "multi:softprob",    # multiclass classification 
-              "num_class" = num.class,    # number of classes 
-              "eval_metric" = "mlogloss",    # evaluation metric 
-              "nthread" = 8,   # number of threads to be used 
-              "max_depth" = 8,    # maximum depth of tree 
-              "eta" = 0.1,    # step size shrinkage 
-              "gamma" = 0,    # minimum loss reduction 
-              "subsample" = 0.7,    # part of data instances to grow tree 
-              "colsample_bytree" = 0.7,  # subsample ratio of columns when constructing each tree 
-              "min_child_weight" = 1  # minimum sum of instance weight needed in a child 
-)
 bst <- xgboost(param = param, data = train.june.2015.bst, 
-               label = product.lab, nrounds = 80, verbose = FALSE)
+               label = product.lab, 
+               nrounds = which.min(bst.cv$dt$test.mlogloss.mean), 
+               verbose = FALSE)
 gc()
 
-importance <- xgb.importance(train.june.2015.bst@Dimnames[[2]], model = bst)
-xgb.plot.importance(importance_matrix = head(importance, 20))
+#importance <- xgb.importance(train.june.2015.bst@Dimnames[[2]], model = bst)
+#xgb.plot.importance(importance_matrix = head(importance, 20))
 
 
 # prediction
@@ -84,4 +75,4 @@ result <- get.result.df(test)
 result_write <- prepare.result.to.write(result)
 
 # save to csv
-write.csv(result_write, 'result40.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result41.csv', quote = FALSE, row.names = FALSE)
