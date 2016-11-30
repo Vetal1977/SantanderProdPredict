@@ -13,7 +13,7 @@ clean.data.in.df <- function(df) {
     df$age[df$age < min.age] <- min.age
     df$age[df$age > max.age] <- max.age
     df$age[is.na(df$age)] <- median(df$age, na.rm = TRUE)
-    #df$age <- round((df$age - min.age) / range.age, 6)
+    df$age <- round((df$age - min.age) / range.age, 6)
     
     # remove tipodom, conyuemp and
     # remove ult_fec_cli_1t - last date as primary customer (if he isn't at the end of the month)
@@ -44,13 +44,13 @@ clean.data.in.df <- function(df) {
     df <- arrange(df, fecha_dato)
     gc()
     
-    #min.income <- 0
-    #max.income <- 1500000
-    #range.income <- max.income - min.income
-    #df$renta[df$renta < min.income] <- min.income
-    #df$renta[df$renta > max.income] <- max.income
+    min.income <- 0
+    max.income <- 1500000
+    range.income <- max.income - min.income
+    df$renta[df$renta < min.income] <- min.income
+    df$renta[df$renta > max.income] <- max.income
     #df$renta[is.na(df$renta)] <- median(df$renta, na.rm = TRUE)
-    #df$renta <- round((df$renta - min.income) / range.income, 6)
+    df$renta <- round((df$renta - min.income) / range.income, 6)
     
     # check for empty strings
     #char.cols <- names(df)[sapply(df, is.character)]
@@ -62,12 +62,12 @@ clean.data.in.df <- function(df) {
     
     # seniority
     min.seniority <- 0
-    #max.seniority <- 256
-    #range.seniority <- max.seniority - min.seniority
+    max.seniority <- 256
+    range.seniority <- max.seniority - min.seniority
     df$antiguedad[is.na(df$antiguedad)] <- min.seniority
     df$antiguedad[df$antiguedad < min.seniority] <- min.seniority
-    #df$antiguedad[df$antiguedad > max.seniority] <- max.seniority
-    #df$antiguedad <- round((df$antiguedad - min.seniority) / range.seniority, 6)
+    df$antiguedad[df$antiguedad > max.seniority] <- max.seniority
+    df$antiguedad <- round((df$antiguedad - min.seniority) / range.seniority, 6)
     
     # replace empty strings and NA's
     df$ind_nuevo[is.na(df$ind_nuevo)] <- 1

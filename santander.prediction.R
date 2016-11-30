@@ -75,4 +75,4 @@ result <- get.result.df(test)
 result_write <- prepare.result.to.write(result)
 
 # save to csv
-write.csv(result_write, 'result41.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result42.csv', quote = FALSE, row.names = FALSE)
