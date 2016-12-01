@@ -80,40 +80,6 @@ prepare.train.df.for.boost <- function(train.may.2015, train.june.2015) {
     return(train.june.2015)
 }
 
-create.boost.model <- function(train.june.2015) {
-    # teach models
-    
-    # convert outcome from factor to numeric matrix 
-    # xgboost takes multi-labels in [0, numOfClass)
-    num.class <- length(levels(train.june.2015$product))
-    product.lab <- as.matrix(as.integer(train.june.2015$product) - 1)
-    
-    # prepare train matrix
-    train.june.2015.bst <- prepare.train.matrix(train.june.2015)
-    
-    # set random seed, for reproducibility
-    set.seed(1234)
-    
-    # train the model
-    param <- list("objective" = "multi:softprob",    # multiclass classification 
-                  "num_class" = num.class,    # number of classes 
-                  "eval_metric" = "mlogloss",    # evaluation metric 
-                  "nthread" = 8,   # number of threads to be used 
-                  "max_depth" = 8,    # maximum depth of tree 
-                  "eta" = 0.05,    # step size shrinkage 
-                  "gamma" = 0,    # minimum loss reduction 
-                  "subsample" = 0.7,    # part of data instances to grow tree 
-                  "colsample_bytree" = 0.7,  # subsample ratio of columns when constructing each tree 
-                  "min_child_weight" = 1  # minimum sum of instance weight needed in a child 
-    )
-    
-    bst <- xgboost(param = param, data = train.june.2015.bst, 
-                   label = product.lab, nrounds = 50, verbose = FALSE)
-    gc()
-    
-    return(bst)
-}
-
 make.prediction <- function(test, 
                             bst, 
                             train.june.2015) {
