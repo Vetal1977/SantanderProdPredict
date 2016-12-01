@@ -23,9 +23,6 @@ test <- clean.test.df(test, train.may.2016)
 # prepare train data for boost algorithm
 train.june.2015 <- prepare.train.df.for.boost(train.may.2015, train.june.2015)
 
-# create boost model
-#bst <- create.boost.model(train.june.2015)
-
 # teach models
 
 # convert outcome from factor to numeric matrix 
@@ -63,7 +60,6 @@ gc()
 
 #importance <- xgb.importance(train.june.2015.bst@Dimnames[[2]], model = bst)
 #xgb.plot.importance(importance_matrix = head(importance, 20))
-
 
 # prediction
 test <- make.prediction(test, bst, train.june.2015)
