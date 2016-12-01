@@ -54,10 +54,12 @@ param <- list("objective" = "multi:softprob",    # multiclass classification
 bst.cv <- xgb.cv(params = param, data = train.june.2015.bst, 
        label = product.lab, nrounds = 300, nfold = 4,
        prediction = TRUE, verbose = FALSE)
+best.val <- min(bst.cv$dt$test.mlogloss.mean)
+best.val.idx <- which.min(bst.cv$dt$test.mlogloss.mean)
 
 bst <- xgboost(param = param, data = train.june.2015.bst, 
                label = product.lab, 
-               nrounds = which.min(bst.cv$dt$test.mlogloss.mean), 
+               nrounds = best.val.idx, 
                verbose = FALSE)
 gc()
 
@@ -75,4 +77,4 @@ result <- get.result.df(test)
 result_write <- prepare.result.to.write(result)
 
 # save to csv
-write.csv(result_write, 'result42.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result43.csv', quote = FALSE, row.names = FALSE)
