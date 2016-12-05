@@ -44,8 +44,8 @@ clean.data.in.df <- function(df) {
     df <- arrange(df, fecha_dato)
     gc()
     
-    min.income <- 0
-    max.income <- 1500000
+    min.income <- 1202 #0
+    max.income <- 28894396 #1500000
     range.income <- max.income - min.income
     df$renta[df$renta < min.income] <- min.income
     df$renta[df$renta > max.income] <- max.income
