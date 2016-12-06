@@ -13,12 +13,18 @@ clean.and.split.train.df <- function(train) {
     train.may.2015 <- train[train$fecha_dato == '2015-05-28',]
     train.june.2015 <- train[train$fecha_dato == '2015-06-28',]
     train.may.2016 <- train[train$fecha_dato == '2016-05-28',]
+    train.lagged <- train[train$fecha_dato == '2015-02-28' | 
+                              train$fecha_dato == '2015-03-28' |
+                              train$fecha_dato == '2015-04-28' |
+                              train$fecha_dato == '2015-05-28' |
+                              train$fecha_dato == '2015-06-28',]
     
     train.may.2015 <- clean.data.in.df(train.may.2015)
     train.june.2015 <- clean.data.in.df(train.june.2015)
     train.may.2016 <- clean.data.in.df(train.may.2016)
+    train.lagged <- clean.data.in.df(train.lagged)
     
-    return(list(train.may.2015, train.june.2015, train.may.2016))
+    return(list(train.may.2015, train.june.2015, train.may.2016, train.lagged))
 }
 
 clean.test.df <- function(test, train.may.2016) {
