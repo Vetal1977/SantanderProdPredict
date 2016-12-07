@@ -24,13 +24,6 @@ train.lagged[, paste(products.lag, 1:110, sep = '.') := shift(.SD),
              .SDcols = products]
 train.june.2015.lagged <- as.data.frame(train.lagged[train.lagged$fecha_dato == '2015-06-28'])
 
-# read and clean test data from the file
-test_orig <- as.data.frame(
-    fread('test_ver2.csv', sep = ',', na.strings = 'NA', 
-              stringsAsFactors = FALSE)
-)
-test <- clean.test.df(test_orig, train.may.2016)
-
 # prepare train data for boost algorithm
 train.june.2015 <- prepare.train.df.for.boost(train.may.2015, train.june.2015.lagged)
 train.june.2015[is.na(train.june.2015)] <- 0
@@ -74,6 +67,24 @@ gc()
 
 #importance <- xgb.importance(train.june.2015.bst@Dimnames[[2]], model = bst)
 #xgb.plot.importance(importance_matrix = head(importance, 20))
+
+# read and clean test data from the file
+test_orig <- as.data.frame(
+    fread('test_ver2.csv', sep = ',', na.strings = 'NA', 
+          stringsAsFactors = FALSE)
+)
+test <- clean.test.df(test_orig, train.may.2016)
+test.lagged <- train.sets[[5]]
+test <- rbind(test.lagged, test)
+
+test <- test[order(test$ncodpers, test$fecha_dato),]
+test <- as.data.table(test)
+products <- grep('ind_+.*ult.*', names(test), value = TRUE)
+products.lag <- paste('lag', products, sep='.')
+test[, paste(products.lag, 1:110, sep = '.') := shift(.SD), 
+     by = ncodpers, 
+     .SDcols = products]
+test <- as.data.frame(test[test$fecha_dato == '2016-06-28'])
 
 # prediction
 test <- make.prediction(test, bst, train.june.2015)
