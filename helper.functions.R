@@ -119,11 +119,15 @@ clean.data.in.df <- function(df) {
 }
 
 prepare.train.matrix <- function(df) {
-    predict.matrix <- sparse.model.matrix(product ~ age + ind_nuevo + segmento + 
-                                             ind_empleado + ind_actividad_cliente +
-                                             nomprov + renta + antiguedad + indrel +
-                                             tiprel_1mes + sexo + indfall + canal_entrada +
-                                             indext + indrel_1mes - 1, data = df)
+    product.names <- grep('ind_+.*ult.*', names(train.june.2015), value = TRUE)
+    fmla <- as.formula(paste('product ~ age + ind_nuevo + segmento + 
+                             ind_empleado + ind_actividad_cliente +
+                             nomprov + renta + antiguedad + indrel +
+                             tiprel_1mes + sexo + indfall + canal_entrada +
+                             indext + indrel_1mes + ', 
+                             paste(product.names, collapse = '+'),
+                             '-1'))
+    predict.matrix <- sparse.model.matrix(fmla, data = df)
     return(predict.matrix)
 }
 

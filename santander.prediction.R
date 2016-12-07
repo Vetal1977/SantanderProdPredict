@@ -15,13 +15,14 @@ train.may.2016 <- train.sets[[3]]
 
 # lagging
 train.lagged <- train.sets[[4]]
+train.lagged <- train.lagged[order(train.lagged$ncodpers, train.lagged$fecha_dato),]
 train.lagged <- as.data.table(train.lagged)
-products <- grep("ind_+.*ult.*", names(train.lagged))
-products.lag <- paste("lag", products, sep='.')
-train.lagged[, paste0(products.lag, 1:5) := shift(.SD), 
+products <- grep('ind_+.*ult.*', names(train.lagged), value = TRUE)
+products.lag <- paste('lag', products, sep='.')
+train.lagged[, paste(products.lag, 1:110, sep = '.') := shift(.SD), 
              by = ncodpers, 
              .SDcols = products]
-#train.june.2015.lagged <-
+train.june.2015.lagged <- as.data.frame(train.lagged[train.lagged$fecha_dato == '2015-06-28'])
 
 # read and clean test data from the file
 test_orig <- as.data.frame(
@@ -31,7 +32,8 @@ test_orig <- as.data.frame(
 test <- clean.test.df(test_orig, train.may.2016)
 
 # prepare train data for boost algorithm
-train.june.2015 <- prepare.train.df.for.boost(train.may.2015, train.june.2015)
+train.june.2015 <- prepare.train.df.for.boost(train.may.2015, train.june.2015.lagged)
+train.june.2015[is.na(train.june.2015)] <- 0
 
 # teach models
 
@@ -47,16 +49,16 @@ train.june.2015.bst <- prepare.train.matrix(train.june.2015)
 set.seed(1234)
 
 # train the model
-param <- list("objective" = "multi:softprob",    # multiclass classification 
-              "num_class" = num.class,    # number of classes 
-              "eval_metric" = "mlogloss",    # evaluation metric 
-              "nthread" = 8,   # number of threads to be used 
-              "max_depth" = 8,    # maximum depth of tree 
-              "eta" = 0.05,    # step size shrinkage 
-              "gamma" = 0,    # minimum loss reduction 
-              "subsample" = 0.7,    # part of data instances to grow tree 
-              "colsample_bytree" = 0.7,  # subsample ratio of columns when constructing each tree 
-              "min_child_weight" = 1  # minimum sum of instance weight needed in a child 
+param <- list('objective' = 'multi:softprob',    # multiclass classification 
+              'num_class' = num.class,    # number of classes 
+              'eval_metric' = 'mlogloss',    # evaluation metric 
+              'nthread' = 8,   # number of threads to be used 
+              'max_depth' = 8,    # maximum depth of tree 
+              'eta' = 0.05,    # step size shrinkage 
+              'gamma' = 0,    # minimum loss reduction 
+              'subsample' = 0.7,    # part of data instances to grow tree 
+              'colsample_bytree' = 0.7,  # subsample ratio of columns when constructing each tree 
+              'min_child_weight' = 1  # minimum sum of instance weight needed in a child 
 )
 bst.cv <- xgb.cv(params = param, data = train.june.2015.bst, 
        label = product.lab, nrounds = 300, nfold = 4,
@@ -66,7 +68,7 @@ best.val.idx <- which.min(bst.cv$dt$test.mlogloss.mean)
 
 bst <- xgboost(param = param, data = train.june.2015.bst, 
                label = product.lab, 
-               nrounds = best.val.idx, 
+               nrounds = best.val.idx,
                verbose = FALSE)
 gc()
 

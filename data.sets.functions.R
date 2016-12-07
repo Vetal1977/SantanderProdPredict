@@ -43,23 +43,8 @@ clean.test.df <- function(test, train.may.2016) {
 }
 
 prepare.train.df.for.boost <- function(train.may.2015, train.june.2015) {
-    # create new column for fecha_alta in months
-    train.june.2015$fecha_alta_month <- 
-        1 + 12 * (as.yearmon(train.june.2015$fecha_dato) - 
-                      as.yearmon(train.june.2015$fecha_alta))
-    
-    min.fecha_alta_month <- 1.0
-    max.fecha_alta_month <- 246.0
-    range.fecha_alta_month <- (max.fecha_alta_month - min.fecha_alta_month)
-    train.june.2015$fecha_alta_month[train.june.2015$fecha_alta_month < min.fecha_alta_month] <- 
-        min.fecha_alta_month
-    train.june.2015$fecha_alta_month[train.june.2015$fecha_alta_month > max.fecha_alta_month] <- 
-        max.fecha_alta_month
-    train.june.2015$fecha_alta_month <- 
-        round((train.june.2015$fecha_alta_month - min.fecha_alta_month) / range.fecha_alta_month, 6)
-    
     # filter June 2016 data - remove all rows by customers, where no products bought
-    products <- grep("ind_+.*ult.*", names(train.june.2015))
+    products <- grep("ind_+.*ult1$", names(train.june.2015))
     interesting <- rowSums(train.june.2015[, products])
     train.june.2015 <- train.june.2015[interesting > 0,]
     
@@ -99,19 +84,6 @@ prepare.train.df.for.boost <- function(train.may.2015, train.june.2015) {
 make.prediction <- function(test, 
                             bst, 
                             train.june.2015) {
-    # create new column for fecha_alta in months
-    test$fecha_alta_month <- 1 + 12 * (as.yearmon(test$fecha_dato) - as.yearmon(test$fecha_alta))
-    
-    min.fecha_alta_month <- 1.0
-    max.fecha_alta_month <- 246.0
-    range.fecha_alta_month <- (max.fecha_alta_month - min.fecha_alta_month)
-    test$fecha_alta_month[test$fecha_alta_month < min.fecha_alta_month] <- 
-        min.fecha_alta_month
-    test$fecha_alta_month[test$fecha_alta_month > max.fecha_alta_month] <- 
-        max.fecha_alta_month
-    test$fecha_alta_month <- 
-        round((test$fecha_alta_month - min.fecha_alta_month) / range.fecha_alta_month, 6)
-    
     # preparation
     to_predict <- prepare.predict.matrix(test)
     
