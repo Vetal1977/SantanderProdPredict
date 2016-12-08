@@ -58,6 +58,7 @@ bst.cv <- xgb.cv(params = param, data = train.june.2015.bst,
        prediction = TRUE, verbose = FALSE)
 best.val <- min(bst.cv$dt$test.mlogloss.mean)
 best.val.idx <- which.min(bst.cv$dt$test.mlogloss.mean)
+gc()
 
 bst <- xgboost(param = param, data = train.june.2015.bst, 
                label = product.lab, 

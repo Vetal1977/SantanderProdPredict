@@ -38,7 +38,7 @@ clean.and.split.train.df <- function(train) {
 
 clean.test.df <- function(test, train.may.2016) {
     # products and ncodpers+products columns
-    products <- grep("ind_+.*ult.*", names(train.may.2016))
+    products <- grep("ind_+.*ult1$", names(train.may.2016))
     products_ncodpers <- c(2, products)
     
     # we need only ncodpers and products from May 2016 data frame
@@ -58,7 +58,7 @@ prepare.train.df.for.boost <- function(train.may.2015, train.june.2015) {
     train.june.2015 <- train.june.2015[interesting > 0,]
     
     # prepare May 2015 data - we need only products and ncodpers to define products that were bought in June 2015
-    products <- grep("ind_+.*ult.*", names(train.may.2015))
+    products <- grep("ind_+.*ult1$", names(train.may.2015))
     products_ncodpers <- c(2, products)
     train.may.2015 <- train.may.2015[, products_ncodpers]
     
@@ -104,7 +104,7 @@ make.prediction <- function(test,
     colnames(pred) <- levels(train.june.2015$product)
     
     # exclude preditions for already bought products
-    products <- grep("ind_+.*ult.*", names(test))
+    products <- grep("ind_+.*ult1$", names(test))
     prod_status <- test[, products]
     prod_status <- as.matrix(prod_status[, colnames(pred)])
     prod_status <- (1 - prod_status)
