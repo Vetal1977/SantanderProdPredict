@@ -44,8 +44,8 @@ clean.data.in.df <- function(df) {
     df <- arrange(df, fecha_dato)
     gc()
     
-    min.income <- 0
-    max.income <- 1500000
+    min.income <- min(df$renta)
+    max.income <- max(df$renta)
     range.income <- max.income - min.income
     df$renta[df$renta < min.income] <- min.income
     df$renta[df$renta > max.income] <- max.income
@@ -71,7 +71,6 @@ clean.data.in.df <- function(df) {
     
     # replace empty strings and NA's
     df$ind_nuevo[is.na(df$ind_nuevo)] <- 1
-    #df$antiguedad[df$antiguedad < 0] <- 0
     df$indrel[is.na(df$indrel)] <- 1
     df$ind_actividad_cliente[is.na(df$ind_actividad_cliente)] <- 1
     df$indrel_1mes[is.na(df$indrel_1mes)] <- '1'
@@ -119,7 +118,7 @@ clean.data.in.df <- function(df) {
 }
 
 prepare.train.matrix <- function(df) {
-    product.names <- grep('ind_+.*ult.*', names(train.june.2015), value = TRUE)
+    product.names <- grep('lag.ind_+.*ult.*', names(df), value = TRUE)
     fmla <- as.formula(paste('product ~ age + ind_nuevo + segmento + 
                              ind_empleado + ind_actividad_cliente +
                              nomprov + renta + antiguedad + indrel +
@@ -132,7 +131,7 @@ prepare.train.matrix <- function(df) {
 }
 
 prepare.predict.matrix <- function(df) {
-    product.names <- grep('ind_+.*ult.*', names(train.june.2015), value = TRUE)
+    product.names <- grep('lag.ind_+.*ult.*', names(df), value = TRUE)
     fmla <- as.formula(paste(' ~ age + ind_nuevo + segmento + 
                              ind_empleado + ind_actividad_cliente +
                              nomprov + renta + antiguedad + indrel +
