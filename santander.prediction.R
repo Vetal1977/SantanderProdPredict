@@ -19,18 +19,21 @@ train.may.2016 <- train.sets[[3]]
 train.lagged <- train.sets[[4]]
 train.lagged <- train.lagged[order(train.lagged$ncodpers, train.lagged$fecha_dato),]
 train.lagged <- as.data.table(train.lagged)
-products <- grep('ind_+.*ult1$', names(train.lagged), value = TRUE)
-products.lag <- paste('lag', products, sep='.')
-train.lagged[, paste(products.lag, 1:110, sep = '.') := shift(.SD), 
-             by = ncodpers, 
-             .SDcols = products]
+products <- grep('ind_+.*ult1$', names(train.lagged), value = TRUE)    
+products.col.prev <- products
+for (i in 1:5) {
+    products.lag <- paste('lag', products, i, sep='.')
+    train.lagged[, (products.lag) := shift(.SD), 
+                 by = ncodpers, 
+                 .SDcols = products.col.prev]
+    products.col.prev <- products.lag
+}
 train.june.2015.lagged <- as.data.frame(train.lagged[train.lagged$fecha_dato == '2015-06-28'])
+rm(train.lagged)
+gc()
 
 # prepare train data for boost algorithm
 train.june.2015 <- prepare.train.df.for.boost(train.may.2015, train.june.2015.lagged)
-rm(train.june.2015.lagged)
-gc()
-
 train.june.2015[is.na(train.june.2015)] <- 0
 
 # teach models
@@ -86,11 +89,16 @@ test <- rbind(test.lagged, test)
 test <- test[order(test$ncodpers, test$fecha_dato),]
 test <- as.data.table(test)
 gc()
+
 products <- grep('ind_+.*ult1$', names(test), value = TRUE)
-products.lag <- paste('lag', products, sep='.')
-test[, paste(products.lag, 1:110, sep = '.') := shift(.SD), 
-     by = ncodpers, 
-     .SDcols = products]
+products.col.prev <- products
+for (i in 1:5) {
+    products.lag <- paste('lag', products, i, sep='.')
+    test[, (products.lag) := shift(.SD),
+         by = ncodpers, 
+         .SDcols = products.col.prev]
+    products.col.prev <- products.lag
+}
 test <- as.data.frame(test[test$fecha_dato == '2016-06-28'])
 
 # prediction
@@ -105,4 +113,4 @@ result <- get.result.df(test)
 result_write <- prepare.result.to.write(result)
 
 # save to csv
-write.csv(result_write, 'result48.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result49.csv', quote = FALSE, row.names = FALSE)
