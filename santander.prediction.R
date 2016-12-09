@@ -14,9 +14,11 @@ gc()
 train.may.2015 <- train.sets[[1]]
 train.june.2015 <- train.sets[[2]]
 train.may.2016 <- train.sets[[3]]
+train.lagged <- train.sets[[4]]
+test.lagged <- train.sets[[5]]
+rm(train.sets)
 
 # lagging
-train.lagged <- train.sets[[4]]
 train.lagged <- train.lagged[order(train.lagged$ncodpers, train.lagged$fecha_dato),]
 train.lagged <- as.data.table(train.lagged)
 products <- grep('ind_+.*ult1$', names(train.lagged), value = TRUE)    
@@ -83,9 +85,7 @@ test_orig <- as.data.frame(
           stringsAsFactors = FALSE)
 )
 test <- clean.test.df(test_orig, train.may.2016)
-test.lagged <- train.sets[[5]]
 test <- rbind(test.lagged, test)
-
 test <- test[order(test$ncodpers, test$fecha_dato),]
 test <- as.data.table(test)
 gc()
@@ -100,9 +100,34 @@ for (i in 1:5) {
     products.col.prev <- products.lag
 }
 test <- as.data.frame(test[test$fecha_dato == '2016-06-28'])
+test[is.na(test)] <- 0
 
 # prediction
-test <- make.prediction(test, bst, train.june.2015)
+#test <- make.prediction(test, bst, train.june.2015)
+
+# preparation
+to_predict <- prepare.predict.matrix(test)
+
+# predict and interpret the results
+num.class <- length(levels(train.june.2015$product))
+pred <- predict(bst, newdata = to_predict)
+pred <- matrix(pred, nrow=num.class, ncol=length(pred)/num.class)
+pred <- t(pred)
+colnames(pred) <- levels(train.june.2015$product)
+
+# exclude preditions for already bought products
+products <- grep("ind_+.*ult1$", names(test))
+prod_status <- test[, products]
+prod_status <- as.matrix(prod_status[, colnames(pred)])
+prod_status <- (1 - prod_status)
+pred <- prod_status * pred
+
+# put predictions to test data.frame
+test[, products] <- NULL
+test <- cbind(test, pred)
+
+
+
 products.lag <- grep('lag.ind_+.*ult.*', names(test))
 test[, products.lag] <- NULL
 
