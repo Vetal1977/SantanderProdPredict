@@ -18,8 +18,7 @@ clean.and.split.train.df <- function(train) {
                               train$fecha_dato == '2015-02-28' | 
                               train$fecha_dato == '2015-03-28' |
                               train$fecha_dato == '2015-04-28' |
-                              train$fecha_dato == '2015-05-28' |
-                              train$fecha_dato == '2015-06-28',]
+                              train$fecha_dato == '2015-05-28',]
     
     test.lagged <- train[train$fecha_dato == '2016-01-28' |
                              train$fecha_dato == '2016-02-28' | 
@@ -83,6 +82,7 @@ prepare.train.df.for.boost <- function(train.may.2015, train.june.2015) {
     train.june.2015 <- filter(train.june.2015, added > 0)
     train.june.2015$status.x <- NULL
     train.june.2015$status.y <- NULL
+    train.june.2015$added <- NULL
     
     # convert product and status to factor
     train.june.2015$product <- as.factor(train.june.2015$product)
@@ -94,11 +94,11 @@ make.prediction <- function(test,
                             bst, 
                             train.june.2015) {
     # preparation
-    to_predict <- prepare.predict.matrix(test)
+    to_predict <- prepare.predict.matrix(df = test)
     
     # predict and interpret the results
-    num.class <- length(levels(train.june.2015$product))
     pred <- predict(bst, newdata = to_predict)
+    num.class <- length(levels(train.june.2015$product))
     pred <- matrix(pred, nrow=num.class, ncol=length(pred)/num.class)
     pred <- t(pred)
     colnames(pred) <- levels(train.june.2015$product)
@@ -146,4 +146,23 @@ prepare.result.to.write <- function(result) {
     result_write <- as.data.frame(result_write)
     
     return(result_write)
+}
+
+make.lagged.set <- function(lagged.df, target.df, target.date) {
+    lagged.df <- rbind(lagged.df, target.df)
+    lagged.df <- lagged.df[order(lagged.df$ncodpers, lagged.df$fecha_dato),]
+    lagged.df <- as.data.table(lagged.df)
+    
+    products <- grep('ind_+.*ult1$', names(lagged.df), value = TRUE)    
+    products.col.prev <- products
+    for (i in 1:5) {
+        products.lag <- paste('lag', products, i, sep='.')
+        lagged.df[, (products.lag) := shift(.SD), 
+                     by = ncodpers, 
+                     .SDcols = products.col.prev]
+        products.col.prev <- products.lag
+    }
+    target.df.lagged <- as.data.frame(lagged.df[lagged.df$fecha_dato == target.date])
+    target.df.lagged[is.na(target.df.lagged)] <- 0
+    return(target.df.lagged)
 }

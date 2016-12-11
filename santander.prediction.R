@@ -7,8 +7,8 @@ train_orig <- as.data.frame(
 )
 
 # clean train data and get May 2015, June 2015, May 2016 sets separately
-train.sets <- clean.and.split.train.df(train_orig)
-#rm(train_orig)
+train.sets <- clean.and.split.train.df(train = train_orig)
+rm(train_orig)
 gc()
 
 train.may.2015 <- train.sets[[1]]
@@ -19,34 +19,26 @@ test.lagged <- train.sets[[5]]
 rm(train.sets)
 
 # lagging
-train.lagged <- train.lagged[order(train.lagged$ncodpers, train.lagged$fecha_dato),]
-train.lagged <- as.data.table(train.lagged)
-products <- grep('ind_+.*ult1$', names(train.lagged), value = TRUE)    
-products.col.prev <- products
-for (i in 1:5) {
-    products.lag <- paste('lag', products, i, sep='.')
-    train.lagged[, (products.lag) := shift(.SD), 
-                 by = ncodpers, 
-                 .SDcols = products.col.prev]
-    products.col.prev <- products.lag
-}
-train.june.2015.lagged <- as.data.frame(train.lagged[train.lagged$fecha_dato == '2015-06-28'])
+train.june.2015.lagged <- make.lagged.set(lagged.df = train.lagged, 
+                                          target.df = train.june.2015,
+                                          target.date = '2015-06-28')
 rm(train.lagged)
 gc()
 
 # prepare train data for boost algorithm
-train.june.2015 <- prepare.train.df.for.boost(train.may.2015, train.june.2015.lagged)
-train.june.2015[is.na(train.june.2015)] <- 0
-
+train.june.2015 <- prepare.train.df.for.boost(train.may.2015 = train.may.2015, 
+                                              train.june.2015 = train.june.2015.lagged)
+rm(train.june.2015.lagged)
+gc()
 # teach models
+
+# prepare train matrix
+train.june.2015.bst <- prepare.predict.matrix(df = train.june.2015)
 
 # convert outcome from factor to numeric matrix 
 # xgboost takes multi-labels in [0, numOfClass)
 num.class <- length(levels(train.june.2015$product))
 product.lab <- as.matrix(as.integer(train.june.2015$product) - 1)
-
-# prepare train matrix
-train.june.2015.bst <- prepare.train.matrix(train.june.2015)
 
 # set random seed, for reproducibility
 set.seed(1234)
@@ -84,50 +76,19 @@ test_orig <- as.data.frame(
     fread('test_ver2.csv', sep = ',', na.strings = 'NA', 
           stringsAsFactors = FALSE)
 )
-test <- clean.test.df(test_orig, train.may.2016)
-test <- rbind(test.lagged, test)
-test <- test[order(test$ncodpers, test$fecha_dato),]
-test <- as.data.table(test)
+test <- clean.test.df(test = test_orig, train.may.2016 = train.may.2016)
+rm(train.may.2016)
 gc()
 
-products <- grep('ind_+.*ult1$', names(test), value = TRUE)
-products.col.prev <- products
-for (i in 1:5) {
-    products.lag <- paste('lag', products, i, sep='.')
-    test[, (products.lag) := shift(.SD),
-         by = ncodpers, 
-         .SDcols = products.col.prev]
-    products.col.prev <- products.lag
-}
-test <- as.data.frame(test[test$fecha_dato == '2016-06-28'])
-test[is.na(test)] <- 0
+test <- make.lagged.set(lagged.df = test.lagged,
+                        target.df = test,
+                        target.date = '2016-06-28')
+rm(test.lagged)
+gc()
 
 # prediction
-#test <- make.prediction(test, bst, train.june.2015)
-
-# preparation
-to_predict <- prepare.predict.matrix(test)
-
-# predict and interpret the results
-num.class <- length(levels(train.june.2015$product))
-pred <- predict(bst, newdata = to_predict)
-pred <- matrix(pred, nrow=num.class, ncol=length(pred)/num.class)
-pred <- t(pred)
-colnames(pred) <- levels(train.june.2015$product)
-
-# exclude preditions for already bought products
-products <- grep("ind_+.*ult1$", names(test))
-prod_status <- test[, products]
-prod_status <- as.matrix(prod_status[, colnames(pred)])
-prod_status <- (1 - prod_status)
-pred <- prod_status * pred
-
-# put predictions to test data.frame
-test[, products] <- NULL
-test <- cbind(test, pred)
-
-
-
+#sapply(test, function(x) any(is.na(x)))
+test <- make.prediction(test = test, bst = bst, train.june.2015 = train.june.2015)
 products.lag <- grep('lag.ind_+.*ult.*', names(test))
 test[, products.lag] <- NULL
 
@@ -138,4 +99,4 @@ result <- get.result.df(test)
 result_write <- prepare.result.to.write(result)
 
 # save to csv
-write.csv(result_write, 'result49.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result52.csv', quote = FALSE, row.names = FALSE)

@@ -117,28 +117,8 @@ clean.data.in.df <- function(df) {
     return(df)
 }
 
-prepare.train.matrix <- function(df) {
-    product.names <- grep('lag.ind_+.*ult.*', names(df), value = TRUE)
-    fmla <- as.formula(paste('product ~ age + ind_nuevo + segmento + 
-                             ind_empleado + ind_actividad_cliente +
-                             nomprov + renta + antiguedad + indrel +
-                             tiprel_1mes + sexo + indfall + canal_entrada +
-                             indext + indrel_1mes + ', 
-                             paste(product.names, collapse = '+'),
-                             '-1'))
-    predict.matrix <- sparse.model.matrix(fmla, data = df)
-    return(predict.matrix)
-}
-
 prepare.predict.matrix <- function(df) {
-    product.names <- grep('lag.ind_+.*ult.*', names(df), value = TRUE)
-    fmla <- as.formula(paste(' ~ age + ind_nuevo + segmento + 
-                             ind_empleado + ind_actividad_cliente +
-                             nomprov + renta + antiguedad + indrel +
-                             tiprel_1mes + sexo + indfall + canal_entrada +
-                             indext + indrel_1mes + ', 
-                             paste(product.names, collapse = '+'),
-                             '-1'))
-    predict.matrix <- sparse.model.matrix(fmla, data = df)
+    products <- grep('lag.ind_+.*ult.*', names(df))
+    predict.matrix <- as.matrix(df[, products])
     return(predict.matrix)
 }
