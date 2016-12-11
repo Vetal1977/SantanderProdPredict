@@ -33,15 +33,7 @@ gc()
 # teach models
 
 # prepare train matrix
-#train.june.2015.bst <- prepare.predict.matrix(df = train.june.2015)
-train.columns <- colnames(train.june.2015)
-feature.columns <- grep('lag.ind_+.*ult.*', train.columns)
-feature.columns <- c(feature.columns, 
-                     which(train.columns %in% c('age', 'sexo', 'renta', 'ind_nuevo')))
-train.june.2015.bst <- train.june.2015
-train.june.2015.bst$sexo <- as.numeric(train.june.2015.bst$sexo)
-train.june.2015.bst$ind_nuevo <- as.numeric(train.june.2015.bst$ind_nuevo)
-train.june.2015.bst <- as.matrix(train.june.2015.bst[, feature.columns])
+train.june.2015.bst <- prepare.predict.matrix(df = train.june.2015)
 
 # convert outcome from factor to numeric matrix 
 # xgboost takes multi-labels in [0, numOfClass)
@@ -107,4 +99,4 @@ result <- get.result.df(test)
 result_write <- prepare.result.to.write(result)
 
 # save to csv
-write.csv(result_write, 'result53.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result54.csv', quote = FALSE, row.names = FALSE)

@@ -49,7 +49,6 @@ clean.data.in.df <- function(df) {
     range.income <- max.income - min.income
     df$renta[df$renta < min.income] <- min.income
     df$renta[df$renta > max.income] <- max.income
-    #df$renta[is.na(df$renta)] <- median(df$renta, na.rm = TRUE)
     df$renta <- round((df$renta - min.income) / range.income, 6)
     
     # check for empty strings
@@ -121,9 +120,26 @@ prepare.predict.matrix <- function(df) {
     train.columns <- colnames(df)
     feature.columns <- grep('lag.ind_+.*ult.*', train.columns)
     feature.columns <- c(feature.columns, 
-                         which(train.columns %in% c('age', 'sexo', 'renta', 'ind_nuevo')))
+                         which(train.columns %in% c(
+                             'age', 'sexo', 'renta', 'ind_nuevo',
+                             'segmento')))
     df$sexo <- as.numeric(df$sexo)
+    df$sexo <- scale.feature(df$sexo)
+    
     df$ind_nuevo <- as.numeric(df$ind_nuevo)
+    df$ind_nuevo <- scale.feature(df$ind_nuevo)
+    
+    df$segmento <- as.numeric(df$segmento)
+    df$segmento <- scale.feature(df$segmento)
+    
     predict.matrix <- as.matrix(df[, feature.columns])
     return(predict.matrix)
+}
+
+scale.feature <- function(feature.vec) {
+    feature.min <- min(feature.vec)
+    feature.max <- max(feature.vec)
+    feature.range <- feature.max - feature.min
+    feature.scale <- round((feature.vec - feature.min) / feature.range, 6)
+    return(feature.scale)
 }
