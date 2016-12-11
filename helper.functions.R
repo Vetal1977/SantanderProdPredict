@@ -118,7 +118,12 @@ clean.data.in.df <- function(df) {
 }
 
 prepare.predict.matrix <- function(df) {
-    products <- grep('lag.ind_+.*ult.*', names(df))
-    predict.matrix <- as.matrix(df[, products])
+    train.columns <- colnames(df)
+    feature.columns <- grep('lag.ind_+.*ult.*', train.columns)
+    feature.columns <- c(feature.columns, 
+                         which(train.columns %in% c('age', 'sexo', 'renta', 'ind_nuevo')))
+    df$sexo <- as.numeric(df$sexo)
+    df$ind_nuevo <- as.numeric(df$ind_nuevo)
+    predict.matrix <- as.matrix(df[, feature.columns])
     return(predict.matrix)
 }
