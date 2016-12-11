@@ -90,7 +90,7 @@ gc()
 # prediction
 #sapply(test, function(x) any(is.na(x)))
 test <- make.prediction(test = test, bst = bst, train.june.2015 = train.june.2015)
-products.lag <- grep('lag.ind_+.*ult.*', names(test))
+products.lag <- grep('lag.col.*', names(test))
 test[, products.lag] <- NULL
 
 # get the results from the prediction
@@ -100,4 +100,4 @@ result <- get.result.df(test)
 result_write <- prepare.result.to.write(result)
 
 # save to csv
-write.csv(result_write, 'result55.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result56.csv', quote = FALSE, row.names = FALSE)

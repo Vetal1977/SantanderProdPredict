@@ -153,14 +153,15 @@ make.lagged.set <- function(lagged.df, target.df, target.date) {
     lagged.df <- lagged.df[order(lagged.df$ncodpers, lagged.df$fecha_dato),]
     lagged.df <- as.data.table(lagged.df)
     
-    products <- grep('ind_+.*ult1$', names(lagged.df), value = TRUE)    
-    products.col.prev <- products
+    lagged.cols <- grep('ind_+.*ult1$', names(lagged.df), value = TRUE)
+    lagged.cols <- c(lagged.cols, 'age', 'renta')
+    lagged.cols.col.prev <- lagged.cols
     for (i in 1:5) {
-        products.lag <- paste('lag', products, i, sep='.')
-        lagged.df[, (products.lag) := shift(.SD), 
+        lagged.cols.lag <- paste('lag.col', lagged.cols, i, sep='.')
+        lagged.df[, (lagged.cols.lag) := shift(.SD), 
                      by = ncodpers, 
-                     .SDcols = products.col.prev]
-        products.col.prev <- products.lag
+                     .SDcols = lagged.cols.col.prev]
+        lagged.cols.col.prev <- lagged.cols.lag
     }
     target.df.lagged <- as.data.frame(lagged.df[lagged.df$fecha_dato == target.date])
     target.df.lagged[is.na(target.df.lagged)] <- 0

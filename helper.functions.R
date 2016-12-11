@@ -118,10 +118,10 @@ clean.data.in.df <- function(df) {
 
 prepare.predict.matrix <- function(df) {
     train.columns <- colnames(df)
-    feature.columns <- grep('lag.ind_+.*ult.*', train.columns)
+    feature.columns <- grep('lag.col.*', train.columns)
     feature.columns <- c(feature.columns, 
                          which(train.columns %in% c(
-                             'age', 'sexo', 'renta', 'ind_nuevo',
+                             'age', 'renta', 'sexo', 'ind_nuevo',
                              'segmento', 'ind_actividad_cliente')))
     df$sexo <- as.numeric(df$sexo)
     df$sexo <- scale.feature(df$sexo)
