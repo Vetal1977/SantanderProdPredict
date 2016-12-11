@@ -30,6 +30,7 @@ train.june.2015 <- prepare.train.df.for.boost(train.may.2015 = train.may.2015,
                                               train.june.2015 = train.june.2015.lagged)
 rm(train.june.2015.lagged)
 gc()
+
 # teach models
 
 # prepare train matrix
@@ -99,4 +100,4 @@ result <- get.result.df(test)
 result_write <- prepare.result.to.write(result)
 
 # save to csv
-write.csv(result_write, 'result54.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result55.csv', quote = FALSE, row.names = FALSE)

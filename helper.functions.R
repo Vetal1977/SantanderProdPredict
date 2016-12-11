@@ -122,7 +122,7 @@ prepare.predict.matrix <- function(df) {
     feature.columns <- c(feature.columns, 
                          which(train.columns %in% c(
                              'age', 'sexo', 'renta', 'ind_nuevo',
-                             'segmento')))
+                             'segmento', 'ind_actividad_cliente')))
     df$sexo <- as.numeric(df$sexo)
     df$sexo <- scale.feature(df$sexo)
     
@@ -131,6 +131,9 @@ prepare.predict.matrix <- function(df) {
     
     df$segmento <- as.numeric(df$segmento)
     df$segmento <- scale.feature(df$segmento)
+    
+    df$ind_actividad_cliente <- as.numeric(df$ind_actividad_cliente)
+    df$ind_actividad_cliente <- scale.feature(df$ind_actividad_cliente)
     
     predict.matrix <- as.matrix(df[, feature.columns])
     return(predict.matrix)
