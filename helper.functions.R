@@ -106,6 +106,13 @@ clean.data.in.df <- function(df) {
     df$ind_actividad_cliente <- as.factor(df$ind_actividad_cliente)
     df$segmento <- as.factor(df$segmento)
     df$indfall <- as.factor(df$indfall)
+    
+    df$indrel_1mes <- as.numeric(df$indrel_1mes)
+    df$indrel_1mes <- scale.feature(df$indrel_1mes)
+    
+    df$tiprel_1mes <- as.numeric(df$tiprel_1mes)
+    df$tiprel_1mes <- scale.feature(df$tiprel_1mes)
+    
     gc()
     
     # replace NA's for feche_alta here

@@ -154,7 +154,7 @@ make.lagged.set <- function(lagged.df, target.df, target.date) {
     lagged.df <- as.data.table(lagged.df)
     
     lagged.cols <- grep('ind_+.*ult1$', names(lagged.df), value = TRUE)
-    #lagged.cols <- c(lagged.cols, 'age', 'renta')
+    lagged.cols <- c(lagged.cols, 'indrel_1mes', 'tiprel_1mes')
     lagged.cols.col.prev <- lagged.cols
     for (i in 1:5) {
         lagged.cols.lag <- paste('lag.col', lagged.cols, i, sep='.')
