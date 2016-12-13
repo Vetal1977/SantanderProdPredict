@@ -60,8 +60,8 @@ clean.data.in.df <- function(df) {
     #}
     
     # seniority
-    min.seniority <- 0
-    max.seniority <- 256
+    min.seniority <- min(df$antiguedad)
+    max.seniority <- max(df$antiguedad)
     range.seniority <- max.seniority - min.seniority
     df$antiguedad[is.na(df$antiguedad)] <- min.seniority
     df$antiguedad[df$antiguedad < min.seniority] <- min.seniority
@@ -120,6 +120,13 @@ clean.data.in.df <- function(df) {
     df$fecha_alta[df$fecha_alta == ''] <- as.character(median.fecha.alta)
     df$fecha_alta <- as.Date(df$fecha_alta)
     
+    df$fecha_alta_month <- 1 + 12 * (as.yearmon(df$fecha_dato) - as.yearmon(df$fecha_alta))
+    
+    min.fecha_alta_month <- min(df$fecha_alta_month)
+    max.fecha_alta_month <- max(df$fecha_alta_month)
+    range.fecha_alta_month <- max.fecha_alta_month - min.fecha_alta_month
+    df$fecha_alta_month <- round((df$fecha_alta_month - min.fecha_alta_month) / range.fecha_alta_month, 6)
+    
     return(df)
 }
 
@@ -130,7 +137,7 @@ prepare.predict.matrix <- function(df) {
                          which(train.columns %in% c(
                              'age', 'renta', 'sexo', 'ind_nuevo',
                              'segmento', 'ind_actividad_cliente',
-                             'nomprov', 'antiguedad')))
+                             'nomprov', 'antiguedad', 'fecha_alta_month')))
     df$sexo <- as.numeric(df$sexo)
     df$sexo <- scale.feature(df$sexo)
     
