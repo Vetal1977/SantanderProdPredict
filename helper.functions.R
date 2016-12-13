@@ -127,6 +127,11 @@ clean.data.in.df <- function(df) {
     range.fecha_alta_month <- max.fecha_alta_month - min.fecha_alta_month
     df$fecha_alta_month <- round((df$fecha_alta_month - min.fecha_alta_month) / range.fecha_alta_month, 6)
     
+    # number of products per customer per month
+    products <- grep("ind_+.*ult1$", names(df))
+    df$no.of.products.cust.month <- rowSums(df[, products])
+    df$no.of.products.cust.month <- scale.feature(df$no.of.products.cust.month)
+
     return(df)
 }
 
@@ -137,7 +142,7 @@ prepare.predict.matrix <- function(df) {
                          which(train.columns %in% c(
                              'age', 'renta', 'sexo', 'ind_nuevo',
                              'segmento', 'ind_actividad_cliente',
-                             'nomprov', 'antiguedad', 'fecha_alta_month')))
+                             'nomprov', 'antiguedad')))
     df$sexo <- as.numeric(df$sexo)
     df$sexo <- scale.feature(df$sexo)
     
