@@ -25,6 +25,15 @@ train.june.2015.lagged <- make.lagged.set(lagged.df = train.lagged,
 rm(train.lagged)
 gc()
 
+# remove unused number of products per customer per month
+train.june.2015.lagged <- train.june.2015.lagged[, !(names(train.june.2015.lagged) %in%
+                                                         c('no.of.products.cust.month', 'lag.col.no.of.products.cust.month.1',
+                                                           'lag.col.no.of.products.cust.month.2', 'lag.col.no.of.products.cust.month.3',
+                                                           'lag.col.no.of.products.cust.month.4'))] 
+names(train.june.2015.lagged)[
+    names(train.june.2015.lagged) == "lag.col.no.of.products.cust.month.5"] <- 
+    "col.no.of.products.cust.month.prev"
+
 # prepare train data for boost algorithm
 train.june.2015 <- prepare.train.df.for.boost(train.may.2015 = train.may.2015, 
                                               train.june.2015 = train.june.2015.lagged)
@@ -87,6 +96,15 @@ test <- make.lagged.set(lagged.df = test.lagged,
 rm(test.lagged)
 gc()
 
+# remove unused number of products per customer per month
+test <- test[, !(names(test) %in%
+                     c('no.of.products.cust.month', 'lag.col.no.of.products.cust.month.1',
+                     'lag.col.no.of.products.cust.month.2', 'lag.col.no.of.products.cust.month.3',
+                     'lag.col.no.of.products.cust.month.4'))] 
+names(test)[
+    names(test) == "lag.col.no.of.products.cust.month.5"] <- 
+    "col.no.of.products.cust.month.prev"
+
 # prediction
 #sapply(test, function(x) any(is.na(x)))
 test <- make.prediction(test = test, bst = bst, train.june.2015 = train.june.2015)
@@ -100,4 +118,4 @@ result <- get.result.df(test)
 result_write <- prepare.result.to.write(result)
 
 # save to csv
-write.csv(result_write, 'result62.csv', quote = FALSE, row.names = FALSE)
+write.csv(result_write, 'result63.csv', quote = FALSE, row.names = FALSE)

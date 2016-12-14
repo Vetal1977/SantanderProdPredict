@@ -142,7 +142,8 @@ prepare.predict.matrix <- function(df) {
                          which(train.columns %in% c(
                              'age', 'renta', 'sexo', 'ind_nuevo',
                              'segmento', 'ind_actividad_cliente',
-                             'nomprov', 'antiguedad')))
+                             'nomprov', 'antiguedad',
+                             'col.no.of.products.cust.month.prev')))
     df$sexo <- as.numeric(df$sexo)
     df$sexo <- scale.feature(df$sexo)
     
