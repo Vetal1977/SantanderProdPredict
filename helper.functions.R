@@ -143,7 +143,6 @@ prepare.predict.matrix <- function(df) {
                              'age', 'renta', 'sexo', 'ind_nuevo',
                              'segmento', 'ind_actividad_cliente',
                              'nomprov', 'antiguedad',
-                             'indrel_1mes', 'tiprel_1mes',
                              'indext', 'canal_entrada')))
     df$sexo <- as.numeric(df$sexo)
     df$sexo <- scale.feature(df$sexo)
@@ -159,12 +158,6 @@ prepare.predict.matrix <- function(df) {
     
     df$nomprov <- as.numeric(df$nomprov)
     df$nomprov <- scale.feature(df$nomprov)
-    
-    df$indrel_1mes <- as.numeric(df$indrel_1mes)
-    df$indrel_1mes <- scale.feature(df$indrel_1mes)
-    
-    df$tiprel_1mes <- as.numeric(df$tiprel_1mes)
-    df$tiprel_1mes <- scale.feature(df$tiprel_1mes)
     
     df$indext <- as.numeric(df$indext)
     df$indext <- scale.feature(df$indext)
